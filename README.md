@@ -175,7 +175,7 @@ Other
 ## 1. Authentication
 
 * Client registration and login
-* Admin login
+* Admin registeration and login
 * Cookie-based authentication
 * Role-based access control
 * Protected routes
