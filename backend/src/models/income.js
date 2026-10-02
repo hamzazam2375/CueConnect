@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const incomeSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         source: {
             type: String,
             required: true,

@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const discountSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         name: {
             type: String,
             required: true,

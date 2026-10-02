@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const eventSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         title: {
             type: String,
             required: true,

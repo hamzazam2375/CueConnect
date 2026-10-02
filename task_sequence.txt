@@ -1,22 +1,16 @@
 Admin Implementation:
 
-setup folder structure,
-installed dependencies for both ends.
+setup folder structure
+installed dependencies for both ends
 connected mongodb through mongodb atlas
 tested the connection
+admin registeration using secret key
+admin login (hashing, JWT, HTTP only cookies)
+admin logout (clearing cookies)
+homepage
 
 ======================================
-1. Authentication
 
-Build this first.
-
-Register
-Login
-Password hashing with bcrypt
-JWT
-Store JWT in cookies
-Admin/client role authorization
-Protected routes
 2. Admin Table Management
 
 Your first actual Admin feature.

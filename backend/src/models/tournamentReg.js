@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const tournamentRegSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         event: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Event",

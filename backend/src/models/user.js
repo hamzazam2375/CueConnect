@@ -30,6 +30,13 @@ const userSchema = new mongoose.Schema(
             type: String,
             enum: ["admin", "client"],
             default: "client"
+        },
+
+        // which branch this admin belongs to (null for clients)
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            default: null
         }
     },
     {
