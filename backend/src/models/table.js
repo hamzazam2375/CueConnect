@@ -14,6 +14,12 @@ const tableSchema = new mongoose.Schema(
             trim: true
         },
 
+        tableType: {
+            type: String,
+            enum: ["snooker", "billiard"],
+            required: true
+        },
+
         status: {
             type: String,
             enum: ["available", "occupied", "maintenance"],
