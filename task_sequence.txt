@@ -5,6 +5,9 @@ installed dependencies for both ends
 connected mongodb through mongodb atlas
 tested the connection
 admin registeration using secret key
+admin login (hashing, JWT, HTTP only cookies)
+admin logout (clearing cookies)
+homepage
 
 ======================================
 

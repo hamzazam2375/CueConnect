@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

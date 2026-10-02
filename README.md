@@ -75,7 +75,7 @@ CueConnect provides a centralized platform for managing the daily operations of 
 * **Role-Based Authorization** — Separate Admin and Client permissions
 * **Input Validation** — Validating user-provided data
 * **CORS** — Controlling cross-origin requests
-* **XSS Protection** — Protecting against malicious input and scripts
+* **XSS Protection** — Protecting against malicious input and scripts through HTTP Only Cookies and Sanitizing user input
 
 ## Real-Time Communication
 

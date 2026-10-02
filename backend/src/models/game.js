@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const gameSchema = new mongoose.Schema(
     {
+        branchId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Branch",
+            required: true
+        },
+
         table: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Table",
