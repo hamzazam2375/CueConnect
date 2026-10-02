@@ -1,0 +1,10 @@
+Admin Implementation:
+
+setup folder structure,
+installed dependencies for both ends.
+connected mongodb through mongodb atlas
+tested the connection
+
+
+
+Client Implementation:
