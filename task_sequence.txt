@@ -1,0 +1,109 @@
+Admin Implementation:
+
+setup folder structure,
+installed dependencies for both ends.
+connected mongodb through mongodb atlas
+tested the connection
+
+======================================
+1. Authentication
+
+Build this first.
+
+Register
+Login
+Password hashing with bcrypt
+JWT
+Store JWT in cookies
+Admin/client role authorization
+Protected routes
+2. Admin Table Management
+
+Your first actual Admin feature.
+
+Add table
+Edit table
+Delete table
+View tables
+Set frame/century prices
+Set table status
+3. Booking System
+
+Then connect clients to tables.
+
+Check availability
+Create booking
+Prevent overlapping bookings
+Edit/cancel booking
+Admin approve/reject
+Payment proof upload
+4. Billing & Games
+Record frame/century game
+Calculate bill
+Apply discounts
+Record payment
+5. Loyalty & Membership
+Award loyalty points
+Calculate/apply discounts
+Membership purchase
+Membership expiry/details
+6. Events/Tournaments
+Admin creates events
+Client views events
+Tournament registration
+Member/non-member entry rules
+7. Waitlist + WebSockets
+Client joins waitlist
+Detect when table becomes available
+Send real-time notification
+8. Income & Expenses
+Record expenses
+Calculate income
+Daily/monthly/yearly summaries
+Generate PDF reports
+9. Customer History
+
+Combine data from:
+
+Bookings
+Games
+Payments
+Memberships
+Loyalty
+
+to show the customer's complete history.
+
+10. Frontend Admin Dashboard
+
+Once the backend functionality is working, connect it to your React + Redux + Tailwind frontend.
+
+Your development flow
+Models ✅
+   ↓
+Authentication ← START HERE
+   ↓
+Admin Table Management
+   ↓
+Bookings
+   ↓
+Games + Billing
+   ↓
+Loyalty + Membership
+   ↓
+Events
+   ↓
+Waitlist + WebSockets
+   ↓
+Income + Expenses + PDF
+   ↓
+Customer History
+   ↓
+Frontend polish + Performance
+   ↓
+Testing
+   ↓
+Deployment
+
+
+
+Client Implementation:

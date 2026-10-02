@@ -3,3 +3,5 @@ node_modules/
 uploads/
 reports/
 dist/
+backend/
+task_sequence.txt
