@@ -94,7 +94,7 @@ export default function Home() {
                         Book your table and enjoy your game.
                     </p>
                     <a
-                        href="/login"
+                        href="/register"
                         className="inline-block px-10 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors duration-200 shadow-lg shadow-red-600/25 text-lg"
                     >
                         Book Now

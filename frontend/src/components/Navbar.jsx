@@ -5,9 +5,7 @@ const navLinks = [
     { label: "Home", href: "#home" },
     { label: "Tables", href: "#branches" },
     { label: "Events", href: "#events" },
-    { label: "Membership", href: "#membership" },
-    { label: "Login", href: "/login" },
-    { label: "Register", href: "/register" }
+    { label: "Membership", href: "#membership" }
 ];
 
 export default function Navbar() {
@@ -34,6 +32,13 @@ export default function Navbar() {
                                 {link.label}
                             </a>
                         ))}
+                        {/* Bold Signup CTA */}
+                        <a
+                            href="/register"
+                            className="ml-3 px-6 py-2 text-sm font-extrabold uppercase tracking-wide text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg shadow-lg shadow-red-600/30 hover:shadow-red-500/40 transition-all duration-300 hover:scale-105 border border-red-500/30"
+                        >
+                            Sign Up
+                        </a>
                     </div>
 
                     {/* mobile hamburger */}
@@ -65,6 +70,14 @@ export default function Navbar() {
                                 {link.label}
                             </a>
                         ))}
+                        {/* Bold Signup CTA - mobile */}
+                        <a
+                            href="/register"
+                            onClick={() => setMenuOpen(false)}
+                            className="block mx-4 mt-3 px-6 py-2.5 text-sm font-extrabold uppercase tracking-wide text-white text-center bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 rounded-lg shadow-lg shadow-red-600/30 transition-all duration-300 border border-red-500/30"
+                        >
+                            Sign Up
+                        </a>
                     </div>
                 )}
             </div>

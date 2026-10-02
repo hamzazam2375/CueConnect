@@ -5,8 +5,7 @@ const footerLinks = [
     { label: "Tables", href: "#branches" },
     { label: "Events", href: "#events" },
     { label: "Membership", href: "#membership" },
-    { label: "Login", href: "/login" },
-    { label: "Register", href: "/register" }
+    { label: "Sign Up", href: "/register" }
 ];
 
 export default function Footer({ branches }) {
@@ -21,6 +20,12 @@ export default function Footer({ branches }) {
                             Goodshot Snooker Club — your premier destination for snooker and billiards.
                             Play with passion, compete with pride.
                         </p>
+                        <a
+                            href="/admin/login"
+                            className="inline-block mt-4 px-3 py-1 text-[11px] font-medium text-gray-500 border border-gray-700/50 rounded hover:text-gray-300 hover:border-gray-600 transition-colors duration-200"
+                        >
+                            Admin Login
+                        </a>
                     </div>
 
                     {/* nav links */}
@@ -78,3 +83,4 @@ export default function Footer({ branches }) {
         </footer>
     );
 }
+
