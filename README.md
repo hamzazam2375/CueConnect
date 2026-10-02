@@ -77,16 +77,7 @@ CueConnect provides a centralized platform for managing the daily operations of 
 * **CORS** — Controlling cross-origin requests
 * **XSS Protection** — Protecting against malicious input and scripts through HTTP Only Cookies and Sanitizing user input
 
-## Real-Time Communication
 
-* **WebSockets / Socket.IO** — Real-time communication between the server and clients
-
-Used for features such as:
-
-* Table availability notifications
-* Waitlist notifications
-* Real-time booking status updates
-* Admin/client notifications
 
 ## File System
 
@@ -154,8 +145,7 @@ Backend
 ├── Node.js
 ├── Express.js
 ├── REST APIs
-├── Middleware
-└── WebSockets / Socket.IO
+└── Middleware
 
 Database
 ├── MongoDB
@@ -269,15 +259,13 @@ Other
                     │ Business Logic       │
                     │ Middleware           │
                     │ REST APIs             │
-                    └───────┬───────┬──────┘
-                            │       │
-                     ┌──────▼───┐   │
-                     │ MongoDB  │   │ WebSockets
-                     │ +        │   │ / Socket.IO
-                     │ Mongoose │   │
-                     └──────────┘   │
-                                    ▼
-                             Real-time Events
+                    └───────┬──────────────┘
+                            │
+                     ┌──────▼───┐
+                     │ MongoDB  │
+                     │ +        │
+                     │ Mongoose │
+                     └──────────┘
 ```
 
 # Project Goals
@@ -293,6 +281,6 @@ Other
 
 # Development Approach
 
-CueConnect will be developed using the **MERN stack** with additional technologies such as **Tailwind CSS, Redux, Cookies, File System, PDF generation, WebSockets, and performance optimization techniques**.
+CueConnect will be developed using the **MERN stack** with additional technologies such as **Tailwind CSS, Redux, Cookies, File System, PDF generation, and performance optimization techniques**.
 
 The application will follow a client-server architecture where the React frontend communicates with the Node.js/Express backend through RESTful APIs, while MongoDB stores application data.
