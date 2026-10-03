@@ -16,6 +16,37 @@ export const adminLogin = createAsyncThunk(
     }
 );
 
+// client login
+export const clientLogin = createAsyncThunk(
+    "auth/clientLogin",
+    async ({ email, password }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post("/auth/client/login", { email, password });
+            return data.user;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Login failed");
+        }
+    }
+);
+
+// client signup
+export const clientSignup = createAsyncThunk(
+    "auth/clientSignup",
+    async ({ firstName, lastName, email, password }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post("/auth/client/register", {
+                firstName,
+                lastName,
+                email,
+                password
+            });
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Registration failed");
+        }
+    }
+);
+
 // admin signup — step 1: verify secret key
 export const verifyAdminKey = createAsyncThunk(
     "auth/verifyAdminKey",
@@ -76,6 +107,33 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // ── client login ──
+            .addCase(clientLogin.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(clientLogin.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.user = action.payload;
+            })
+            .addCase(clientLogin.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
+            // ── client signup ──
+            .addCase(clientSignup.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(clientSignup.fulfilled, (state) => {
+                state.isLoading = false;
+            })
+            .addCase(clientSignup.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
             // ── admin login ──
             .addCase(adminLogin.pending, (state) => {
                 state.isLoading = true;
