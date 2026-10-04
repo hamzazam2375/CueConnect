@@ -16,15 +16,41 @@ export const adminLogin = createAsyncThunk(
     }
 );
 
-// admin signup — step 1: verify secret key
+// admin signup — step 1: verify secret key → sends OTP to email
 export const verifyAdminKey = createAsyncThunk(
     "auth/verifyAdminKey",
     async ({ email, password, secretKey }, { rejectWithValue }) => {
         try {
             const { data } = await api.post("/auth/admin/verify-key", { email, password, secretKey });
-            return data; // { message, tempToken }
+            return data; // { message, email }
         } catch (err) {
             return rejectWithValue(err.response?.data?.message || "Verification failed");
+        }
+    }
+);
+
+// admin signup — step 1b: verify the OTP → get tempToken
+export const verifyOtp = createAsyncThunk(
+    "auth/verifyOtp",
+    async ({ email, otp }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post("/auth/admin/verify-otp", { email, otp });
+            return data; // { message, tempToken }
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "OTP verification failed");
+        }
+    }
+);
+
+// resend OTP
+export const resendOtp = createAsyncThunk(
+    "auth/resendOtp",
+    async ({ email }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post("/auth/admin/resend-otp", { email });
+            return data; // { message }
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Failed to resend code");
         }
     }
 );
@@ -62,7 +88,9 @@ const authSlice = createSlice({
     name: "auth",
     initialState: {
         user: null,
-        tempToken: null,      // used between admin signup step 1 & 2
+        tempToken: null,      // used between admin signup step 1b & 2
+        pendingEmail: null,   // email awaiting OTP verification
+        showOtpModal: false,  // controls OTP overlay visibility
         isLoading: false,
         error: null
     },
@@ -72,6 +100,11 @@ const authSlice = createSlice({
         },
         clearTempToken(state) {
             state.tempToken = null;
+        },
+        closeOtpModal(state) {
+            state.showOtpModal = false;
+            state.pendingEmail = null;
+            state.error = null;
         }
     },
     extraReducers: (builder) => {
@@ -90,16 +123,46 @@ const authSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // ── verify admin key (signup step 1) ──
+            // ── verify admin key (signup step 1) → OTP sent ──
             .addCase(verifyAdminKey.pending, (state) => {
                 state.isLoading = true;
                 state.error = null;
             })
             .addCase(verifyAdminKey.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.tempToken = action.payload.tempToken;
+                state.pendingEmail = action.payload.email;
+                state.showOtpModal = true;
             })
             .addCase(verifyAdminKey.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
+            // ── verify OTP (signup step 1b) → get tempToken ──
+            .addCase(verifyOtp.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(verifyOtp.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.tempToken = action.payload.tempToken;
+                state.showOtpModal = false;
+                state.pendingEmail = null;
+            })
+            .addCase(verifyOtp.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
+            // ── resend OTP ──
+            .addCase(resendOtp.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(resendOtp.fulfilled, (state) => {
+                state.isLoading = false;
+            })
+            .addCase(resendOtp.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
             })
@@ -122,10 +185,12 @@ const authSlice = createSlice({
             .addCase(logout.fulfilled, (state) => {
                 state.user = null;
                 state.tempToken = null;
+                state.pendingEmail = null;
+                state.showOtpModal = false;
                 state.error = null;
             });
     }
 });
 
-export const { clearError, clearTempToken } = authSlice.actions;
+export const { clearError, clearTempToken, closeOtpModal } = authSlice.actions;
 export default authSlice.reducer;
