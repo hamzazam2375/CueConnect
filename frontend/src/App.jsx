@@ -10,6 +10,7 @@ import ClientSignup from "./pages/ClientSignup";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientBooking from "./pages/ClientBooking";
 import ClientTableSelection from "./pages/ClientTableSelection";
+import ClientScheduleSelection from "./pages/ClientScheduleSelection";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
                     <Route path="/client/dashboard" element={<ClientDashboard />} />
                     <Route path="/client/book" element={<ClientBooking />} />
                     <Route path="/client/book/table" element={<ClientTableSelection />} />
+                    <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />

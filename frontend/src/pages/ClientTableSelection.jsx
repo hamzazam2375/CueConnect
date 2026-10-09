@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
 
 const BOOKING_BRANCH_KEY = "cueconnect_booking_branch";
 const BOOKING_TABLE_KEY = "cueconnect_booking_table";
+const SCHEDULE_KEYS = ["cueconnect_booking_date", "cueconnect_booking_time", "cueconnect_booking_duration"];
+
+const clearScheduleSelection = () => {
+    SCHEDULE_KEYS.forEach((key) => sessionStorage.removeItem(key));
+};
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -93,6 +98,7 @@ function TableCard({ table, index, selected, onSelect }) {
 
 export default function ClientTableSelection() {
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
     const branchId = sessionStorage.getItem(BOOKING_BRANCH_KEY);
     const branch = branches.find((item) => item.id === branchId);
     const storedTable = sessionStorage.getItem(BOOKING_TABLE_KEY);
@@ -101,7 +107,6 @@ export default function ClientTableSelection() {
         const index = Number(storedTable);
         return Number.isInteger(index) && index >= 0 && branch?.tables[index]?.status === "available" ? index : null;
     });
-    const [saved, setSaved] = useState(false);
 
     if (!branch) {
         return <Navigate to="/client/book" replace />;
@@ -113,19 +118,19 @@ export default function ClientTableSelection() {
         if (selectedTableIndex === index) {
             setSelectedTableIndex(null);
             sessionStorage.removeItem(BOOKING_TABLE_KEY);
-            setSaved(false);
+            clearScheduleSelection();
             return;
         }
 
         setSelectedTableIndex(index);
         sessionStorage.setItem(BOOKING_TABLE_KEY, String(index));
-        setSaved(false);
+        clearScheduleSelection();
     };
 
     const continueBooking = () => {
         if (!selectedTable) return;
         sessionStorage.setItem(BOOKING_TABLE_KEY, String(selectedTableIndex));
-        setSaved(true);
+        navigate("/client/book/schedule");
     };
 
     return (
@@ -194,7 +199,6 @@ export default function ClientTableSelection() {
                             Continue <Icon name="arrowRight" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                         </button>
                     </div>
-                    {saved && <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.07] px-4 py-3 text-sm text-emerald-400" role="status"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" /><p><span className="font-bold">Table saved.</span> Schedule selection will be added in the next step.</p></div>}
                 </section>
 
                 <p className="mt-6 text-center text-[11px] text-neutral-700">Click the selected table again to clear it. Occupied and maintenance tables cannot be selected.</p>
