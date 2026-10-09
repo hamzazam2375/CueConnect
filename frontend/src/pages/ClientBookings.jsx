@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
-import { getBookingsForUser } from "../utils/clientBookings";
+import { cancelClientBooking, getBookingsForUser } from "../utils/clientBookings";
 
 const statusStyles = {
     pending: "border-amber-500/20 bg-amber-500/10 text-amber-400",
@@ -61,8 +61,9 @@ function BookingCard({ booking, onView, delay }) {
 
 export default function ClientBookings() {
     const { user } = useSelector((state) => state.auth);
-    const bookings = getBookingsForUser(user);
+    const [bookings, setBookings] = useState(() => getBookingsForUser(user));
     const [selectedBooking, setSelectedBooking] = useState(null);
+    const [bookingToCancel, setBookingToCancel] = useState(null);
     const pendingCount = bookings.filter((booking) => booking.status === "pending").length;
 
     return (
@@ -83,12 +84,25 @@ export default function ClientBookings() {
                 )}
             </main>
 
-            {selectedBooking && <BookingModal booking={selectedBooking} onClose={() => setSelectedBooking(null)} />}
+            {selectedBooking && <BookingModal booking={selectedBooking} onClose={() => setSelectedBooking(null)} onCancel={setBookingToCancel} />}
+            {bookingToCancel && (
+                <CancellationModal
+                    booking={bookingToCancel}
+                    onClose={() => setBookingToCancel(null)}
+                    onCancelled={(updatedBooking) => {
+                        setBookings((current) => current.map((booking) => booking.reference === updatedBooking.reference ? updatedBooking : booking));
+                        setSelectedBooking((current) => current?.reference === updatedBooking.reference ? updatedBooking : current);
+                        setBookingToCancel(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
 
-function BookingModal({ booking, onClose }) {
+function BookingModal({ booking, onClose, onCancel }) {
+    const canCancel = ["pending", "approved"].includes(booking.status);
+
     return (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="booking-detail-title">
             <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close booking details" />
@@ -102,7 +116,43 @@ function BookingModal({ booking, onClose }) {
                     <Detail icon="clock" label="Schedule" value={`${formatTime(booking.startTime)} – ${formatTime(booking.endTime)}`} />
                 </dl>
                 <div className="mt-5 flex items-end justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Duration</p><p className="mt-1 text-sm font-bold text-neutral-300">{booking.duration} {booking.duration === 1 ? "hour" : "hours"}</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Estimated total</p><p className="mt-1 text-xl font-black text-red-400">PKR {booking.total.toLocaleString()}</p></div></div>
+                {booking.status === "cancelled" && booking.cancellationReason && <div className="mt-5 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-wider text-red-500/70">Cancellation reason</p><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{booking.cancellationReason}</p></div>}
+                {canCancel && <button type="button" onClick={() => onCancel(booking)} className="mt-6 w-full rounded-xl border border-red-500/20 bg-red-500/[0.07] px-4 py-3 text-xs font-bold text-red-400 transition-colors hover:bg-red-500/15">Cancel booking</button>}
                 <p className="mt-6 rounded-xl bg-white/[0.025] px-4 py-3 text-center text-[10px] leading-relaxed text-neutral-600">This booking is stored locally until backend booking sync is connected.</p>
+            </article>
+        </div>
+    );
+}
+
+function CancellationModal({ booking, onClose, onCancelled }) {
+    const [reason, setReason] = useState("");
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [error, setError] = useState("");
+
+    const confirmCancellation = () => {
+        if (isCancelling) return;
+        setIsCancelling(true);
+        setError("");
+
+        try {
+            const updatedBooking = cancelClientBooking(booking.reference, reason);
+            onCancelled(updatedBooking);
+        } catch (cancellationError) {
+            setError(cancellationError.message || "Booking could not be cancelled.");
+            setIsCancelling(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title">
+            <button type="button" className="absolute inset-0 cursor-default" onClick={isCancelling ? undefined : onClose} aria-label="Close cancellation dialog" />
+            <article className="dashboard-rise relative z-10 w-full max-w-md rounded-3xl border border-red-500/15 bg-neutral-950 p-6 shadow-2xl shadow-black sm:p-7">
+                <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-red-500">Cancel booking</p><h2 id="cancel-booking-title" className="mt-2 text-xl font-black">Are you sure?</h2></div><button type="button" onClick={onClose} disabled={isCancelling} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500 hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed" aria-label="Close"><Icon name="close" className="h-4 w-4" /></button></div>
+                <p className="mt-4 text-sm leading-relaxed text-neutral-500">This will cancel <strong className="text-neutral-300">{booking.reference}</strong> for {booking.tableName}. This action cannot be reversed from the client dashboard.</p>
+                <label className="mt-5 block"><span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Reason <span className="normal-case tracking-normal text-neutral-700">(optional)</span></span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} rows={4} placeholder="Tell the club why you are cancelling..." className="mt-2 w-full resize-none rounded-xl border border-white/[0.08] bg-black/50 px-4 py-3 text-sm text-neutral-200 placeholder:text-neutral-700 outline-none transition-colors focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10" /></label>
+                <div className="mt-1 text-right text-[9px] text-neutral-700">{reason.length}/300</div>
+                {error && <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400" role="alert">{error}</p>}
+                <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={onClose} disabled={isCancelling} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-400 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed">Keep booking</button><button type="button" onClick={confirmCancellation} disabled={isCancelling} className="rounded-xl bg-red-600 px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-red-900">{isCancelling ? "Cancelling..." : "Yes, cancel"}</button></div>
             </article>
         </div>
     );

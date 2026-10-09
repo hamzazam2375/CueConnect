@@ -17,3 +17,25 @@ export const saveClientBooking = (booking) => {
 export const getBookingsForUser = (user) => getClientBookings().filter(
     (booking) => booking.clientId === user.id || booking.clientEmail === user.email
 );
+
+export const cancelClientBooking = (reference, reason = "") => {
+    const bookings = getClientBookings();
+    const booking = bookings.find((item) => item.reference === reference);
+
+    if (!booking || !["pending", "approved"].includes(booking.status)) {
+        throw new Error("This booking can no longer be cancelled.");
+    }
+
+    const updatedBooking = {
+        ...booking,
+        status: "cancelled",
+        cancellationReason: reason.trim() || null,
+        cancelledAt: new Date().toISOString()
+    };
+
+    const updatedBookings = bookings.map((item) => (
+        item.reference === reference ? updatedBooking : item
+    ));
+    localStorage.setItem(BOOKINGS_KEY, JSON.stringify(updatedBookings));
+    return updatedBooking;
+};
