@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
 
@@ -72,19 +72,28 @@ function BranchCard({ branch, selected, onSelect, delay }) {
 
 export default function ClientBooking() {
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
     const [selectedBranchId, setSelectedBranchId] = useState(() => sessionStorage.getItem(BOOKING_BRANCH_KEY) || "");
-    const [saved, setSaved] = useState(false);
     const selectedBranch = branches.find((branch) => branch.id === selectedBranchId);
 
     const selectBranch = (branchId) => {
+        if (selectedBranchId === branchId) {
+            setSelectedBranchId("");
+            sessionStorage.removeItem(BOOKING_BRANCH_KEY);
+            sessionStorage.removeItem("cueconnect_booking_table");
+            return;
+        }
+
         setSelectedBranchId(branchId);
-        setSaved(false);
+        sessionStorage.setItem(BOOKING_BRANCH_KEY, branchId);
+        sessionStorage.removeItem("cueconnect_booking_table");
     };
 
     const continueBooking = () => {
         if (!selectedBranch) return;
         sessionStorage.setItem(BOOKING_BRANCH_KEY, selectedBranch.id);
-        setSaved(true);
+        sessionStorage.removeItem("cueconnect_booking_table");
+        navigate("/client/book/table");
     };
 
     return (
@@ -146,10 +155,9 @@ export default function ClientBooking() {
                             Continue <Icon name="arrowRight" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                         </button>
                     </div>
-                    {saved && <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.07] px-4 py-3 text-sm text-emerald-400" role="status"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" /><p><span className="font-bold">Branch saved.</span> Table selection will be added in the next step.</p></div>}
                 </section>
 
-                <p className="mt-6 text-center text-[11px] text-neutral-700">Your selection is saved securely for this browser session.</p>
+                <p className="mt-6 text-center text-[11px] text-neutral-700">Click the selected branch again to clear it. Your choice is saved for this browser session.</p>
             </main>
         </div>
     );

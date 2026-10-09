@@ -9,6 +9,7 @@ import ClientLogin from "./pages/ClientLogin";
 import ClientSignup from "./pages/ClientSignup";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientBooking from "./pages/ClientBooking";
+import ClientTableSelection from "./pages/ClientTableSelection";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
                 <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
                     <Route path="/client/dashboard" element={<ClientDashboard />} />
                     <Route path="/client/book" element={<ClientBooking />} />
+                    <Route path="/client/book/table" element={<ClientTableSelection />} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />
