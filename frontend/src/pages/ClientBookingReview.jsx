@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
+import { saveClientBooking } from "../utils/clientBookings";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -11,7 +12,6 @@ const KEYS = {
     time: "cueconnect_booking_time",
     duration: "cueconnect_booking_duration"
 };
-const BOOKINGS_KEY = "cueconnect_client_bookings";
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -122,8 +122,7 @@ export default function ClientBookingReview() {
         };
 
         try {
-            const existing = JSON.parse(localStorage.getItem(BOOKINGS_KEY) || "[]");
-            localStorage.setItem(BOOKINGS_KEY, JSON.stringify([booking, ...existing]));
+            saveClientBooking(booking);
             clearDraft();
             setConfirmedBooking(booking);
             setSaveError("");

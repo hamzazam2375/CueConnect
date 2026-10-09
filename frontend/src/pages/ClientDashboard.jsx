@@ -4,11 +4,12 @@ import Logo from "../components/Logo";
 import branches from "../data/branches";
 import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.jpg";
+import { getBookingsForUser } from "../utils/clientBookings";
 
 const navigation = [
     { label: "Overview", icon: "grid", active: true },
     { label: "Book a table", icon: "calendar", href: "/client/book" },
-    { label: "My bookings", icon: "ticket" },
+    { label: "My bookings", icon: "ticket", href: "/client/bookings" },
     { label: "Membership", icon: "crown", href: "/#membership" },
     { label: "Loyalty points", icon: "star" },
     { label: "Events", icon: "trophy", href: "/#events" }
@@ -18,7 +19,7 @@ const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
     { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/#events", accent: "amber" },
     { title: "Memberships", description: "Unlock discounts and perks", icon: "crown", href: "/#membership", accent: "violet" },
-    { title: "Booking history", description: "Review your recent games", icon: "history", accent: "blue" }
+    { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
 
 const allEvents = branches
@@ -93,6 +94,8 @@ export default function ClientDashboard() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user, isLoading, error } = useSelector((state) => state.auth);
+    const bookings = getBookingsForUser(user);
+    const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
     const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -186,7 +189,7 @@ export default function ClientDashboard() {
                     </section>
 
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
-                        <StatCard icon="calendar" label="Bookings" value="0" detail="No upcoming games" delay="80ms" />
+                        <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
                         <StatCard icon="star" label="Loyalty points" value="0" detail="Play to earn points" delay="140ms" />
                         <StatCard icon="crown" label="Membership" value="Basic" detail="Explore premium plans" delay="200ms" />
                         <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} branches`} delay="260ms" />
