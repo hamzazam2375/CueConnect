@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
 
@@ -56,10 +56,10 @@ function PlanCard({ membership, index, selected, onSelect }) {
 
 export default function ClientMemberships() {
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
     const storedSelection = loadSelection();
     const [branchId, setBranchId] = useState(storedSelection?.branchId || branches[0].id);
     const [selectedIndex, setSelectedIndex] = useState(storedSelection?.planIndex ?? null);
-    const [reviewReady, setReviewReady] = useState(false);
     const branch = branches.find((item) => item.id === branchId);
     const membership = selectedIndex === null ? null : branch.memberships[selectedIndex];
     const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
@@ -68,19 +68,16 @@ export default function ClientMemberships() {
         if (nextBranchId === branchId) return;
         setBranchId(nextBranchId);
         setSelectedIndex(null);
-        setReviewReady(false);
         sessionStorage.removeItem(SELECTION_KEY);
     };
 
     const selectPlan = (index) => {
         if (selectedIndex === index) {
             setSelectedIndex(null);
-            setReviewReady(false);
             sessionStorage.removeItem(SELECTION_KEY);
             return;
         }
         setSelectedIndex(index);
-        setReviewReady(false);
     };
 
     const continueSelection = () => {
@@ -94,7 +91,7 @@ export default function ClientMemberships() {
             discount: membership.discount,
             duration: membership.duration
         }));
-        setReviewReady(true);
+        navigate("/client/memberships/review");
     };
 
     return (
@@ -112,8 +109,7 @@ export default function ClientMemberships() {
                 <section className="mt-4 grid gap-4 md:grid-cols-3" aria-label={`Memberships at ${branch.name}`}>{branch.memberships.map((item, index) => <PlanCard key={`${branch.id}-${item.plan}`} membership={item} index={index} selected={selectedIndex === index} onSelect={selectPlan} />)}</section>
 
                 <section className="dashboard-rise mt-6 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6" style={{ animationDelay: "360ms" }}>
-                    {reviewReady && membership && <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-emerald-400" role="status"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-xs font-bold">Selection saved for review</p><p className="mt-1 text-[11px] text-emerald-400/70">No payment was taken and your membership is not active yet.</p></div></div>}
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary icon="crown" label="Selected plan" value={membership?.plan || "None"} /><Summary icon="pin" label="Branch" value={membership ? branch.name.replace("GOODSHOT ", "") : "—"} /><Summary icon="percent" label="Discount" value={membership ? `${membership.discount}% off` : "—"} /><Summary icon="calendar" label="Monthly price" value={membership ? `PKR ${membership.price.toLocaleString()}` : "—"} accent /></div><button type="button" onClick={continueSelection} disabled={!membership || reviewReady} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{reviewReady ? "Ready for next step" : "Continue"}<Icon name={reviewReady ? "check" : "arrow"} className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button></div>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary icon="crown" label="Selected plan" value={membership?.plan || "None"} /><Summary icon="pin" label="Branch" value={membership ? branch.name.replace("GOODSHOT ", "") : "—"} /><Summary icon="percent" label="Discount" value={membership ? `${membership.discount}% off` : "—"} /><Summary icon="calendar" label="Monthly price" value={membership ? `PKR ${membership.price.toLocaleString()}` : "—"} accent /></div><button type="button" onClick={continueSelection} disabled={!membership} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">Continue<Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button></div>
                 </section>
                 <p className="mt-6 text-center text-[11px] text-neutral-700">Selecting a plan does not charge you. Payment and activation will be added separately.</p>
             </main>
