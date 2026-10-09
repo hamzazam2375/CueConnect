@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
 
@@ -42,9 +42,9 @@ function Detail({ icon, label, value }) {
 
 export default function ClientMembershipReview() {
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
     const selection = loadMembership();
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [reviewComplete, setReviewComplete] = useState(false);
 
     if (!selection) return <Navigate to="/client/memberships" replace />;
 
@@ -53,7 +53,7 @@ export default function ClientMembershipReview() {
     const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
 
     const proceedToPayment = () => {
-        if (!acceptedTerms || reviewComplete) return;
+        if (!acceptedTerms) return;
         sessionStorage.setItem(REVIEW_KEY, JSON.stringify({
             branchId: branch.id,
             planIndex,
@@ -62,7 +62,7 @@ export default function ClientMembershipReview() {
             amount: membership.price,
             reviewedAt: new Date().toISOString()
         }));
-        setReviewComplete(true);
+        navigate("/client/memberships/payment");
     };
 
     return (
@@ -74,8 +74,6 @@ export default function ClientMembershipReview() {
                 <Link to="/client/memberships" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Change membership plan</Link>
                 <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Membership checkout · Review</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your membership.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Confirm everything below before moving to payment.</p></section>
 
-                {reviewComplete && <section className="dashboard-rise mt-7 flex items-start gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.08] p-5 text-emerald-400" role="status"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-500/15"><Icon name="check" /></span><div><h2 className="text-sm font-bold">Review complete — ready for payment</h2><p className="mt-1 text-xs leading-relaxed text-emerald-400/70">Your consent and selection are saved for this session. No payment has been taken and the membership is not active yet.</p></div></section>}
-
                 <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(330px,0.85fr)]">
                     <div className="space-y-6">
                         <section className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85" style={{ animationDelay: "80ms" }}>
@@ -85,10 +83,10 @@ export default function ClientMembershipReview() {
 
                         <section className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6 sm:p-7" style={{ animationDelay: "140ms" }}><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500">Account details</p><h2 className="mt-1 text-xl font-bold">Membership holder</h2></div><Link to="/client/profile" className="text-xs font-bold text-neutral-500 transition-colors hover:text-red-400">Edit profile</Link></div><div className="mt-6 grid gap-5 sm:grid-cols-2"><Detail icon="user" label="Full name" value={`${user.firstName} ${user.lastName}`} /><Detail icon="mail" label="Email" value={user.email} /><Detail icon="phone" label="Phone" value={user.phone || "Not added"} /><Detail icon="shield" label="Account" value="Verified client" /></div></section>
 
-                        <label className={`dashboard-rise flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${acceptedTerms ? "border-red-500/25 bg-red-500/[0.07]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]"}`} style={{ animationDelay: "200ms" }}><input type="checkbox" checked={acceptedTerms} onChange={(event) => { setAcceptedTerms(event.target.checked); setReviewComplete(false); }} className="mt-0.5 h-4 w-4 accent-red-600" /><span className="text-xs leading-relaxed text-neutral-500">I confirm that the details above are correct and agree to the monthly membership terms. Membership benefits begin only after successful payment and activation.</span></label>
+                        <label className={`dashboard-rise flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${acceptedTerms ? "border-red-500/25 bg-red-500/[0.07]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]"}`} style={{ animationDelay: "200ms" }}><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" /><span className="text-xs leading-relaxed text-neutral-500">I confirm that the details above are correct and agree to the monthly membership terms. Membership benefits begin only after successful payment and activation.</span></label>
                     </div>
 
-                    <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.09] bg-neutral-950/95 p-6 sm:p-7 lg:sticky lg:top-8" style={{ animationDelay: "120ms" }}><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-neutral-400"><Icon name="card" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600">Billing summary</p><h2 className="mt-1 text-lg font-bold">Amount due</h2></div></div><div className="mt-7 space-y-4 text-sm"><div className="flex justify-between gap-4 text-neutral-500"><span>{membership.plan} · {membership.duration}</span><span className="font-semibold text-neutral-300">PKR {membership.price.toLocaleString()}</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Processing fee</span><span className="font-semibold text-emerald-400">PKR 0</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Membership discount</span><span className="font-semibold text-neutral-300">{membership.discount}% on play</span></div></div><div className="my-6 border-t border-dashed border-white/[0.1]" /><div className="flex items-end justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Due today</p><p className="mt-1 text-xs text-neutral-600">One month membership</p></div><p className="text-2xl font-black text-red-400">PKR {membership.price.toLocaleString()}</p></div><button type="button" onClick={proceedToPayment} disabled={!acceptedTerms || reviewComplete} className="group mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{reviewComplete ? "Ready for payment" : "Proceed to payment"}<Icon name={reviewComplete ? "check" : "arrow"} className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><div className="mt-4 flex items-start gap-2 text-[10px] leading-relaxed text-neutral-700"><Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />You will not be charged during this review step.</div></aside>
+                    <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.09] bg-neutral-950/95 p-6 sm:p-7 lg:sticky lg:top-8" style={{ animationDelay: "120ms" }}><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-neutral-400"><Icon name="card" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600">Billing summary</p><h2 className="mt-1 text-lg font-bold">Amount due</h2></div></div><div className="mt-7 space-y-4 text-sm"><div className="flex justify-between gap-4 text-neutral-500"><span>{membership.plan} · {membership.duration}</span><span className="font-semibold text-neutral-300">PKR {membership.price.toLocaleString()}</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Processing fee</span><span className="font-semibold text-emerald-400">PKR 0</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Membership discount</span><span className="font-semibold text-neutral-300">{membership.discount}% on play</span></div></div><div className="my-6 border-t border-dashed border-white/[0.1]" /><div className="flex items-end justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Due today</p><p className="mt-1 text-xs text-neutral-600">One month membership</p></div><p className="text-2xl font-black text-red-400">PKR {membership.price.toLocaleString()}</p></div><button type="button" onClick={proceedToPayment} disabled={!acceptedTerms} className="group mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">Proceed to payment<Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><div className="mt-4 flex items-start gap-2 text-[10px] leading-relaxed text-neutral-700"><Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />You will not be charged during this review step.</div></aside>
                 </div>
             </main>
         </div>

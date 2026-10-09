@@ -18,6 +18,7 @@ import ClientBookingTableChange from "./pages/ClientBookingTableChange";
 import ClientProfile from "./pages/ClientProfile";
 import ClientMemberships from "./pages/ClientMemberships";
 import ClientMembershipReview from "./pages/ClientMembershipReview";
+import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
                     <Route path="/client/profile" element={<ClientProfile />} />
                     <Route path="/client/memberships" element={<ClientMemberships />} />
                     <Route path="/client/memberships/review" element={<ClientMembershipReview />} />
+                    <Route path="/client/memberships/payment" element={<ClientMembershipPayment />} />
                     <Route path="/client/book" element={<ClientBooking />} />
                     <Route path="/client/book/table" element={<ClientTableSelection />} />
                     <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />
