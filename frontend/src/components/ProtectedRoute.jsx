@@ -1,8 +1,9 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 export default function ProtectedRoute({ allowedRoles = [] }) {
     const { user, isInitializing } = useSelector((state) => state.auth);
+    const location = useLocation();
 
     if (isInitializing) {
         return (
@@ -13,7 +14,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     }
 
     if (!user) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" replace state={{ from: location.pathname }} />;
     }
 
     if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {

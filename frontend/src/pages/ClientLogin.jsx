@@ -13,18 +13,23 @@ export default function ClientLogin() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isLoading, error, user } = useSelector((state) => state.auth);
+    const destination = location.state?.from || "/client/dashboard";
 
     useEffect(() => {
-        if (user?.role === "client") navigate("/");
-    }, [user, navigate]);
+        if (user?.role === "client") navigate(destination, { replace: true });
+    }, [destination, user, navigate]);
 
     useEffect(() => {
         return () => dispatch(clearError());
     }, [dispatch]);
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
-        dispatch(clientLogin({ email, password }));
+        try {
+            await dispatch(clientLogin({ email: email.trim(), password })).unwrap();
+        } catch {
+            // Redux displays the API error in the form.
+        }
     };
 
     return (

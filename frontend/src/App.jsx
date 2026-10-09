@@ -7,6 +7,8 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminSignup from "./pages/AdminSignup";
 import ClientLogin from "./pages/ClientLogin";
 import ClientSignup from "./pages/ClientSignup";
+import ClientDashboard from "./pages/ClientDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
     const dispatch = useDispatch();
@@ -21,6 +23,9 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<ClientLogin />} />
                 <Route path="/register" element={<ClientSignup />} />
+                <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
+                    <Route path="/client/dashboard" element={<ClientDashboard />} />
+                </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />
             </Routes>

@@ -16,7 +16,7 @@ export default function ClientSignup() {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { isLoading, error } = useSelector((state) => state.auth);
+    const { isLoading, error, user } = useSelector((state) => state.auth);
 
     const updateField = (field) => (event) => {
         setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -28,6 +28,10 @@ export default function ClientSignup() {
         return () => dispatch(clearError());
     }, [dispatch]);
 
+    useEffect(() => {
+        if (user?.role === "client") navigate("/client/dashboard", { replace: true });
+    }, [navigate, user]);
+
     const handleSubmit = async (event) => {
         event.preventDefault();
         if (!passwordsMatch) return;
@@ -36,7 +40,7 @@ export default function ClientSignup() {
             await dispatch(clientSignup({
                 firstName: form.firstName,
                 lastName: form.lastName,
-                email: form.email,
+                email: form.email.trim(),
                 password: form.password
             })).unwrap();
             navigate("/login", { state: { accountCreated: true } });

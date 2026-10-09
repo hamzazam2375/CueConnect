@@ -201,12 +201,18 @@ const authSlice = createSlice({
             })
 
             // ── logout ──
+            .addCase(logout.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
             .addCase(logout.fulfilled, (state) => {
+                state.isLoading = false;
                 state.user = null;
                 state.tempToken = null;
                 state.error = null;
             })
             .addCase(logout.rejected, (state, action) => {
+                state.isLoading = false;
                 state.error = action.payload;
             });
     }
