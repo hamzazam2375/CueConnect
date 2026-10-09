@@ -8,6 +8,7 @@ import AdminSignup from "./pages/AdminSignup";
 import ClientLogin from "./pages/ClientLogin";
 import ClientSignup from "./pages/ClientSignup";
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientBooking from "./pages/ClientBooking";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
                 <Route path="/register" element={<ClientSignup />} />
                 <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
                     <Route path="/client/dashboard" element={<ClientDashboard />} />
+                    <Route path="/client/book" element={<ClientBooking />} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />

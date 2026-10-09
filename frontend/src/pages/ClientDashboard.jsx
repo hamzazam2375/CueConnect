@@ -7,7 +7,7 @@ import tableImage from "../../assets/table.jpg";
 
 const navigation = [
     { label: "Overview", icon: "grid", active: true },
-    { label: "Book a table", icon: "calendar", href: "/#branches" },
+    { label: "Book a table", icon: "calendar", href: "/client/book" },
     { label: "My bookings", icon: "ticket" },
     { label: "Membership", icon: "crown", href: "/#membership" },
     { label: "Loyalty points", icon: "star" },
@@ -15,7 +15,7 @@ const navigation = [
 ];
 
 const quickActions = [
-    { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/#branches", accent: "red" },
+    { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
     { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/#events", accent: "amber" },
     { title: "Memberships", description: "Unlock discounts and perks", icon: "crown", href: "/#membership", accent: "violet" },
     { title: "Booking history", description: "Review your recent games", icon: "history", accent: "blue" }
@@ -180,9 +180,9 @@ export default function ClientDashboard() {
                             <h1 className="mt-4 text-3xl font-black tracking-[-0.04em] sm:text-4xl xl:text-5xl">{greeting}, <span className="text-red-500">{user.firstName}</span>.</h1>
                             <p className="mt-2 max-w-xl text-sm leading-relaxed text-neutral-500 sm:text-base">Everything you need for your next game, all in one place.</p>
                         </div>
-                        <a href="/#branches" className="group inline-flex w-fit items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold shadow-lg shadow-red-950/40 transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-500 hover:shadow-red-900/50">
+                        <Link to="/client/book" className="group inline-flex w-fit items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold shadow-lg shadow-red-950/40 transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-500 hover:shadow-red-900/50">
                             Book a table <Icon name="arrow" className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                        </a>
+                        </Link>
                     </section>
 
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
@@ -202,9 +202,9 @@ export default function ClientDashboard() {
                                     <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">{availableTables} tables available now</span>
                                     <h2 className="mt-4 text-2xl font-black tracking-tight sm:text-3xl">Your table is waiting.</h2>
                                     <p className="mt-3 text-sm leading-relaxed text-neutral-400">Choose a branch, pick a table, and get ready for your next great game.</p>
-                                    <a href="/#branches" className="group mt-6 inline-flex w-fit items-center gap-2 text-sm font-bold text-white">
+                                    <Link to="/client/book" className="group mt-6 inline-flex w-fit items-center gap-2 text-sm font-bold text-white">
                                         Check availability <span className="grid h-8 w-8 place-items-center rounded-full bg-red-600 transition-transform duration-300 group-hover:translate-x-1"><Icon name="arrow" className="h-4 w-4" /></span>
-                                    </a>
+                                    </Link>
                                 </div>
                             </article>
 
