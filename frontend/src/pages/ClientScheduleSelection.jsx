@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import branches from "../data/branches";
 
@@ -55,6 +55,7 @@ const mockBusy = (date, slotIndex, tableIndex) => (date.getDate() + slotIndex * 
 
 export default function ClientScheduleSelection() {
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
     const branchId = sessionStorage.getItem(KEYS.branch);
     const storedTableIndex = sessionStorage.getItem(KEYS.table);
     const tableIndex = storedTableIndex === null ? Number.NaN : Number(storedTableIndex);
@@ -75,7 +76,6 @@ export default function ClientScheduleSelection() {
     const [selectedDate, setSelectedDate] = useState(storedDateIsValid ? storedDate : "");
     const [duration, setDuration] = useState([1, 2, 3].includes(storedDuration) ? storedDuration : 1);
     const [selectedTime, setSelectedTime] = useState(storedTime === null ? null : Number(storedTime));
-    const [saved, setSaved] = useState(false);
 
     if (!branch) return <Navigate to="/client/book" replace />;
     if (!table || table.status !== "available") return <Navigate to="/client/book/table" replace />;
@@ -95,7 +95,6 @@ export default function ClientScheduleSelection() {
         setSelectedTime(null);
         nextValue ? sessionStorage.setItem(KEYS.date, nextValue) : sessionStorage.removeItem(KEYS.date);
         sessionStorage.removeItem(KEYS.time);
-        setSaved(false);
     };
 
     const chooseDuration = (value) => {
@@ -105,7 +104,6 @@ export default function ClientScheduleSelection() {
             setSelectedTime(null);
             sessionStorage.removeItem(KEYS.time);
         }
-        setSaved(false);
     };
 
     const chooseTime = (value) => {
@@ -113,14 +111,13 @@ export default function ClientScheduleSelection() {
         const nextValue = selectedTime === value ? null : value;
         setSelectedTime(nextValue);
         nextValue === null ? sessionStorage.removeItem(KEYS.time) : sessionStorage.setItem(KEYS.time, String(nextValue));
-        setSaved(false);
     };
 
     const validTime = selectedTime !== null && slots.includes(selectedTime) && slotAvailable(selectedTime);
     const continueBooking = () => {
         if (!selectedDate || !validTime) return;
         sessionStorage.setItem(KEYS.duration, String(duration));
-        setSaved(true);
+        navigate("/client/book/review");
     };
 
     return (
@@ -184,7 +181,6 @@ export default function ClientScheduleSelection() {
                         <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Date" value={selectedDateObject ? selectedDateObject.toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"} /><Summary label="Time" value={validTime ? formatTime(selectedTime) : "—"} /><Summary label="Ends at" value={validTime ? formatTime(selectedTime + duration * 60) : "—"} /><Summary label="Estimated total" value={`PKR ${(table.pricePerHour * duration).toLocaleString()}`} accent /></div>
                         <button type="button" onClick={continueBooking} disabled={!selectedDate || !validTime} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600">Continue <Icon name="next" className="h-4 w-4 group-hover:translate-x-1" /></button>
                     </div>
-                    {saved && <div className="mt-5 flex gap-3 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.07] px-4 py-3 text-sm text-emerald-400" role="status"><Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Schedule saved.</strong> Booking review and confirmation will be added next.</p></div>}
                 </section>
                 <p className="mt-6 text-center text-[11px] text-neutral-700">Availability is a frontend preview until the booking API is connected.</p>
             </main>
