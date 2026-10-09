@@ -8,6 +8,7 @@ import { getBookingsForUser } from "../utils/clientBookings";
 
 const navigation = [
     { label: "Overview", icon: "grid", active: true },
+    { label: "Profile", icon: "user", href: "/client/profile" },
     { label: "Book a table", icon: "calendar", href: "/client/book" },
     { label: "My bookings", icon: "ticket", href: "/client/bookings" },
     { label: "Membership", icon: "crown", href: "/#membership" },
@@ -34,6 +35,7 @@ const availableTables = branches.reduce(
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
         grid: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
+        user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
         calendar: <><path d="M6 2v4M18 2v4M3 9h18" /><rect x="3" y="4" width="18" height="17" rx="3" /><path d="m9 15 2 2 4-5" /></>,
         ticket: <><path d="M2 9a3 3 0 0 0 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 0 0 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" /><path d="M13 5v2M13 11v2M13 17v2" /></>,
         crown: <><path d="m3 7 4 4 5-7 5 7 4-4-2 11H5z" /><path d="M5 21h14" /></>,
@@ -128,7 +130,7 @@ export default function ClientDashboard() {
                 </nav>
 
                 <div className="mt-auto">
-                    <div className="mb-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
+                    <Link to="/client/profile" className="mb-3 block rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 transition-colors hover:border-red-500/20 hover:bg-red-500/[0.05]">
                         <div className="flex items-center gap-3">
                             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-sm font-black shadow-lg shadow-red-950/50">{initials}</div>
                             <div className="min-w-0">
@@ -136,7 +138,7 @@ export default function ClientDashboard() {
                                 <p className="truncate text-xs text-neutral-500">{user.email}</p>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                     <button type="button" onClick={handleLogout} disabled={isLoading} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium text-neutral-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed">
                         <Icon name="logout" className="h-[18px] w-[18px]" />
                         {isLoading ? "Signing out..." : "Sign out"}
@@ -158,6 +160,7 @@ export default function ClientDashboard() {
                                 <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-black" />
                             </button>
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
+                            <Link to="/client/profile" className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400" aria-label="Profile settings"><Icon name="user" className="h-[18px] w-[18px]" /></Link>
                             <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
                                 <Icon name="logout" className="h-[18px] w-[18px]" />
                             </button>

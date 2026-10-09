@@ -60,6 +60,30 @@ export const fetchCurrentUser = createAsyncThunk(
     }
 );
 
+export const updateClientProfile = createAsyncThunk(
+    "auth/updateClientProfile",
+    async ({ firstName, lastName, phone }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.patch("/auth/client/profile", { firstName, lastName, phone });
+            return data.user;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Profile update failed");
+        }
+    }
+);
+
+export const changeClientPassword = createAsyncThunk(
+    "auth/changeClientPassword",
+    async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.patch("/auth/client/password", { currentPassword, newPassword });
+            return data.message;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Password change failed");
+        }
+    }
+);
+
 // admin signup — step 1: verify secret key
 export const verifyAdminKey = createAsyncThunk(
     "auth/verifyAdminKey",
@@ -109,6 +133,8 @@ const authSlice = createSlice({
         tempToken: null,      // used between admin signup step 1 & 2
         isInitializing: true,
         isLoading: false,
+        isUpdatingProfile: false,
+        isChangingPassword: false,
         error: null
     },
     reducers: {
@@ -159,6 +185,26 @@ const authSlice = createSlice({
             })
 
             // ── admin login ──
+            .addCase(updateClientProfile.pending, (state) => {
+                state.isUpdatingProfile = true;
+            })
+            .addCase(updateClientProfile.fulfilled, (state, action) => {
+                state.isUpdatingProfile = false;
+                state.user = action.payload;
+            })
+            .addCase(updateClientProfile.rejected, (state) => {
+                state.isUpdatingProfile = false;
+            })
+            .addCase(changeClientPassword.pending, (state) => {
+                state.isChangingPassword = true;
+            })
+            .addCase(changeClientPassword.fulfilled, (state) => {
+                state.isChangingPassword = false;
+            })
+            .addCase(changeClientPassword.rejected, (state) => {
+                state.isChangingPassword = false;
+            })
+
             .addCase(adminLogin.pending, (state) => {
                 state.isLoading = true;
                 state.error = null;
