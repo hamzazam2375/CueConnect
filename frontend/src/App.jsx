@@ -1,4 +1,7 @@
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { fetchCurrentUser } from "./store/authSlice";
 import Home from "./pages/Home";
 import AdminLogin from "./pages/AdminLogin";
 import AdminSignup from "./pages/AdminSignup";
@@ -6,6 +9,12 @@ import ClientLogin from "./pages/ClientLogin";
 import ClientSignup from "./pages/ClientSignup";
 
 export default function App() {
+    const dispatch = useDispatch();
+
+    useEffect(() => {
+        dispatch(fetchCurrentUser());
+    }, [dispatch]);
+
     return (
         <BrowserRouter>
             <Routes>

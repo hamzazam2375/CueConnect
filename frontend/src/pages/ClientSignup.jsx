@@ -140,6 +140,7 @@ export default function ClientSignup() {
                                         id="client-signup-password"
                                         type={showPassword ? "text" : "password"}
                                         autoComplete="new-password"
+                                        minLength={8}
                                         required
                                         value={form.password}
                                         onChange={updateField("password")}
@@ -170,6 +171,7 @@ export default function ClientSignup() {
                                         id="client-confirm-password"
                                         type="password"
                                         autoComplete="new-password"
+                                        minLength={8}
                                         required
                                         value={form.confirmPassword}
                                         onChange={updateField("confirmPassword")}

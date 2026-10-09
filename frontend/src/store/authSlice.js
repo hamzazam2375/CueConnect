@@ -47,6 +47,19 @@ export const clientSignup = createAsyncThunk(
     }
 );
 
+// restore the cookie-based session after refresh
+export const fetchCurrentUser = createAsyncThunk(
+    "auth/fetchCurrentUser",
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await api.get("/auth/me");
+            return data.user;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.message || "Session unavailable");
+        }
+    }
+);
+
 // admin signup — step 1: verify secret key
 export const verifyAdminKey = createAsyncThunk(
     "auth/verifyAdminKey",
@@ -94,6 +107,7 @@ const authSlice = createSlice({
     initialState: {
         user: null,
         tempToken: null,      // used between admin signup step 1 & 2
+        isInitializing: true,
         isLoading: false,
         error: null
     },
@@ -107,6 +121,16 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            // ── restore session ──
+            .addCase(fetchCurrentUser.fulfilled, (state, action) => {
+                state.isInitializing = false;
+                state.user = action.payload;
+            })
+            .addCase(fetchCurrentUser.rejected, (state) => {
+                state.isInitializing = false;
+                state.user = null;
+            })
+
             // ── client login ──
             .addCase(clientLogin.pending, (state) => {
                 state.isLoading = true;
@@ -181,6 +205,9 @@ const authSlice = createSlice({
                 state.user = null;
                 state.tempToken = null;
                 state.error = null;
+            })
+            .addCase(logout.rejected, (state, action) => {
+                state.error = action.payload;
             });
     }
 });
