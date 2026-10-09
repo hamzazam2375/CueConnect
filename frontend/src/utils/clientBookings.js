@@ -64,3 +64,28 @@ export const rescheduleClientBooking = (reference, schedule) => {
     localStorage.setItem(BOOKINGS_KEY, JSON.stringify(updatedBookings));
     return updatedBooking;
 };
+
+export const changeClientBookingTable = (reference, tableDetails) => {
+    const bookings = getClientBookings();
+    const booking = bookings.find((item) => item.reference === reference);
+
+    if (!booking || booking.status !== "pending") {
+        throw new Error("Only pending bookings can change tables.");
+    }
+
+    const updatedBooking = {
+        ...booking,
+        tableIndex: tableDetails.tableIndex,
+        tableName: tableDetails.tableName,
+        tableType: tableDetails.tableType,
+        hourlyRate: tableDetails.hourlyRate,
+        total: tableDetails.hourlyRate * booking.duration,
+        tableChangedAt: new Date().toISOString()
+    };
+
+    const updatedBookings = bookings.map((item) => (
+        item.reference === reference ? updatedBooking : item
+    ));
+    localStorage.setItem(BOOKINGS_KEY, JSON.stringify(updatedBookings));
+    return updatedBooking;
+};
