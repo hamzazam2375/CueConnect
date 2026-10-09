@@ -16,6 +16,7 @@ import ClientBookings from "./pages/ClientBookings";
 import ClientBookingReschedule from "./pages/ClientBookingReschedule";
 import ClientBookingTableChange from "./pages/ClientBookingTableChange";
 import ClientProfile from "./pages/ClientProfile";
+import ClientMemberships from "./pages/ClientMemberships";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
                 <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
                     <Route path="/client/dashboard" element={<ClientDashboard />} />
                     <Route path="/client/profile" element={<ClientProfile />} />
+                    <Route path="/client/memberships" element={<ClientMemberships />} />
                     <Route path="/client/book" element={<ClientBooking />} />
                     <Route path="/client/book/table" element={<ClientTableSelection />} />
                     <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />
