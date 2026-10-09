@@ -12,7 +12,7 @@ const navigation = [
     { label: "Profile", icon: "user", href: "/client/profile" },
     { label: "Book a table", icon: "calendar", href: "/client/book" },
     { label: "My bookings", icon: "ticket", href: "/client/bookings" },
-    { label: "Membership", icon: "crown", href: "/client/memberships" },
+    { label: "My membership", icon: "crown", href: "/client/memberships/manage" },
     { label: "Loyalty points", icon: "star" },
     { label: "Events", icon: "trophy", href: "/#events" }
 ];
@@ -236,7 +236,7 @@ export default function ClientDashboard() {
                                 <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Your status</p><h2 className="mt-1 text-xl font-bold">{pendingMembership ? `${pendingMembership.plan} payment pending` : "Cue Club Basic"}</h2>{pendingMembership && <p className="mt-1 text-[10px] text-amber-400">Ref: {pendingMembership.reference}</p>}</div><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 text-neutral-300"><Icon name="crown" /></span></div>
                                 <div className="mt-7 flex items-end justify-between"><div><p className="text-3xl font-black">0 <span className="text-sm font-medium text-neutral-500">points</span></p><p className="mt-1 text-xs text-neutral-500">500 points to Silver</p></div><span className="text-xs font-bold text-neutral-400">0%</span></div>
                                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="dashboard-progress h-full w-[4%] rounded-full bg-gradient-to-r from-red-700 to-red-500" /></div>
-                                <Link to="/client/memberships" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">Explore membership plans <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
+                                <Link to={memberships.length ? "/client/memberships/manage" : "/client/memberships"} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">{memberships.length ? "Manage memberships" : "Explore membership plans"} <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
                             </article>
 
                             <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "440ms" }}>

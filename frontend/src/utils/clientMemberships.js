@@ -31,3 +31,23 @@ export const savePendingMembership = (membership) => {
     localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify([pendingMembership, ...memberships]));
     return pendingMembership;
 };
+
+export const cancelPendingMembership = (reference) => {
+    const memberships = getClientMemberships();
+    const membership = memberships.find((item) => item.reference === reference);
+
+    if (!membership || membership.status !== "payment_pending") {
+        throw new Error("Only payment-pending membership requests can be cancelled.");
+    }
+
+    const cancelledMembership = {
+        ...membership,
+        status: "cancelled",
+        cancelledAt: new Date().toISOString()
+    };
+    const updatedMemberships = memberships.map((item) => (
+        item.reference === reference ? cancelledMembership : item
+    ));
+    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(updatedMemberships));
+    return cancelledMembership;
+};
