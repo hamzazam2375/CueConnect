@@ -22,6 +22,7 @@ import ClientMembershipReview from "./pages/ClientMembershipReview";
 import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ClientMembershipHistory from "./pages/ClientMembershipHistory";
 import AdminDashboard from "./pages/AdminDashboard";
+import TableManagement from "./pages/TableManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
                 </Route>
                 <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                    <Route path="/admin/tables" element={<TableManagement/>} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />
