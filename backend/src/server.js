@@ -1,9 +1,11 @@
 import "dotenv/config";
+import "./config/dnsResolver.js";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import clientRoutes from "./routes/clientRoutes.js";
 
 const app = express();
 
@@ -19,6 +21,7 @@ app.use(cookieParser());
 
 // routes
 app.use("/api/auth", authRoutes);
+app.use("/api/client", clientRoutes);
 
 app.get("/api/health", (req, res) => {
     res.json({ message: "CueConnect API is running" });

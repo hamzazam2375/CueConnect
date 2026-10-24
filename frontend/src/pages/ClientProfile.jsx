@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import SidebarToggle from "../components/SidebarToggle";
 import { changeClientPassword, logout, updateClientProfile } from "../store/authSlice";
 
 const phonePattern = /^\+?[0-9][0-9\s-]{8,18}$/;
@@ -114,7 +115,7 @@ export default function ClientProfile() {
     return (
         <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
             <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/4 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /><div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" /></div>
-            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link><Link to="/client/dashboard" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white"><Icon name="back" className="h-4 w-4" /> Dashboard</Link></div></header>
+            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><Link to="/client/dashboard" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white"><Icon name="back" className="h-4 w-4" /> Dashboard</Link></div></header>
 
             <main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12">
                 <section className="dashboard-rise flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Account settings</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Your profile.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Keep your personal details and account security up to date.</p></div><div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-neutral-950/80 px-4 py-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-sm font-black shadow-lg shadow-red-950/50">{initials}</div><div><p className="text-sm font-bold">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Member since {memberSince}</p></div></div></section>

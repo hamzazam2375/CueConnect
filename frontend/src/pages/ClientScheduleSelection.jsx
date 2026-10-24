@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
-import branches from "../data/branches";
+import SidebarToggle from "../components/SidebarToggle";
+import { ErrorPanel, LoadingPanel } from "../components/LoadState";
+import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, getApiError, getSlotTimes, hasSlotStarted, isTableFree } from "../utils/clientBookings";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -10,11 +12,6 @@ const KEYS = {
     date: "cueconnect_booking_date",
     time: "cueconnect_booking_time",
     duration: "cueconnect_booking_duration"
-};
-
-const HOURS = {
-    "iqbal-town": { open: 720, close: 1560 },
-    "link-road": { open: 780, close: 1620 }
 };
 
 function Icon({ name, className = "h-5 w-5" }) {
@@ -51,18 +48,14 @@ const formatTime = (minutes) => {
     return `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
 };
 
-const mockBusy = (date, slotIndex, tableIndex) => (date.getDate() + slotIndex * 2 + tableIndex * 3) % 9 === 0;
-
 export default function ClientScheduleSelection() {
     const { user } = useSelector((state) => state.auth);
     const navigate = useNavigate();
     const branchId = sessionStorage.getItem(KEYS.branch);
-    const storedTableIndex = sessionStorage.getItem(KEYS.table);
-    const tableIndex = storedTableIndex === null ? Number.NaN : Number(storedTableIndex);
-    const branch = branches.find((item) => item.id === branchId);
-    const table = branch?.tables[tableIndex];
-    const hours = HOURS[branchId];
+    const tableId = sessionStorage.getItem(KEYS.table);
     const today = getToday();
+    const lastDate = new Date(today);
+    lastDate.setDate(today.getDate() + MAX_BOOKING_DAYS);
     const dates = Array.from({ length: 7 }, (_, index) => {
         const value = new Date(today);
         value.setDate(today.getDate() + index);
@@ -72,24 +65,70 @@ export default function ClientScheduleSelection() {
     const storedDuration = Number(sessionStorage.getItem(KEYS.duration));
     const storedTime = sessionStorage.getItem(KEYS.time);
     const minimumDate = toDateKey(today);
-    const storedDateIsValid = /^\d{4}-\d{2}-\d{2}$/.test(storedDate) && fromDateKey(storedDate) >= today;
-    const [selectedDate, setSelectedDate] = useState(storedDateIsValid ? storedDate : "");
+    const maximumDate = toDateKey(lastDate);
+    const isBookableDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && fromDateKey(value) >= today && fromDateKey(value) <= lastDate;
+    const [selectedDate, setSelectedDate] = useState(isBookableDate(storedDate) ? storedDate : "");
     const [duration, setDuration] = useState([1, 2, 3].includes(storedDuration) ? storedDuration : 1);
     const [selectedTime, setSelectedTime] = useState(storedTime === null ? null : Number(storedTime));
+    const [data, setData] = useState(null);
+    const [loadError, setLoadError] = useState("");
+    const [branchMissing, setBranchMissing] = useState(false);
+    // booked slots for `date`; while `date` differs from selectedDate the slots are still loading
+    const [availability, setAvailability] = useState({ date: null, busy: [], error: "" });
+    const [reloadCount, setReloadCount] = useState(0);
 
-    if (!branch) return <Navigate to="/client/book" replace />;
+    useEffect(() => {
+        if (!branchId) return undefined;
+        let active = true;
+        fetchBranchTables(branchId)
+            .then((result) => active && setData(result))
+            .catch((error) => {
+                if (!active) return;
+                if (error.response?.status === 404) setBranchMissing(true);
+                else setLoadError(getApiError(error, "Booking details could not be loaded. Please try again."));
+            });
+        return () => { active = false; };
+    }, [branchId, reloadCount]);
+
+    useEffect(() => {
+        if (!branchId || !selectedDate) return undefined;
+        let active = true;
+        fetchBranchAvailability(branchId, selectedDate)
+            .then((busy) => active && setAvailability({ date: selectedDate, busy, error: "" }))
+            .catch((error) => active && setAvailability({ date: selectedDate, busy: [], error: getApiError(error, "Availability could not be loaded.") }));
+        return () => { active = false; };
+    }, [branchId, selectedDate, reloadCount]);
+
+    if (!branchId || branchMissing) return <Navigate to="/client/book" replace />;
+
+    const retryLoad = () => {
+        setLoadError("");
+        setAvailability({ date: null, busy: [], error: "" });
+        setReloadCount((count) => count + 1);
+    };
+
+    if (!data) {
+        return (
+            <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
+                <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{loadError ? <ErrorPanel message={loadError} onRetry={retryLoad} /> : <LoadingPanel label="Loading schedule" />}</main>
+            </div>
+        );
+    }
+
+    const { branch } = data;
+    const table = data.tables.find((item) => item.id === tableId);
     if (!table || table.status !== "available") return <Navigate to="/client/book/table" replace />;
 
+    const availabilityReady = Boolean(selectedDate) && availability.date === selectedDate && !availability.error;
     const selectedDateObject = selectedDate ? fromDateKey(selectedDate) : null;
-    const slots = Array.from({ length: (hours.close - hours.open) / 60 }, (_, index) => hours.open + index * 60);
+    const slots = getSlotTimes(branch);
     const slotAvailable = (start, length = duration) => {
-        if (!selectedDateObject || start + length * 60 > hours.close) return false;
-        const startIndex = (start - hours.open) / 60;
-        return Array.from({ length }, (_, offset) => startIndex + offset).every((index) => !mockBusy(selectedDateObject, index, tableIndex));
+        if (!availabilityReady || start + length * 60 > branch.closingTime || hasSlotStarted(selectedDate, start)) return false;
+        return isTableFree(availability.busy, table.id, start, start + length * 60);
     };
 
     const chooseDate = (value) => {
-        if (value && fromDateKey(value) < today) return;
+        if (value && !isBookableDate(value)) return;
         const nextValue = selectedDate === value ? "" : value;
         setSelectedDate(nextValue);
         setSelectedTime(null);
@@ -126,7 +165,7 @@ export default function ClientScheduleSelection() {
 
             <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
                 <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7">
-                    <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link>
+                    <div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
                     <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div>
                 </div>
             </header>
@@ -148,12 +187,13 @@ export default function ClientScheduleSelection() {
                         {dates.map((date, index) => { const key = toDateKey(date); const active = selectedDate === key; return <button key={key} type="button" onClick={() => chooseDate(key)} className={`min-w-[88px] flex-1 rounded-2xl border px-3 py-4 text-center transition-all ${active ? "border-red-500 bg-red-600 text-white" : "border-white/[0.07] bg-white/[0.025] text-neutral-500 hover:text-white"}`}><span className="block text-[9px] font-bold uppercase">{index === 0 ? "Today" : date.toLocaleDateString("en", { weekday: "short" })}</span><span className="mt-2 block text-2xl font-black">{date.getDate()}</span><span className="mt-1 block text-[10px]">{date.toLocaleDateString("en", { month: "short" })}</span></button>; })}
                     </div>
                     <div className="mt-5 flex flex-col gap-3 border-t border-white/[0.07] pt-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div><p className="text-xs font-bold text-neutral-300">Choose another date</p><p className="mt-1 text-[11px] text-neutral-600">Past dates are disabled automatically.</p></div>
+                        <div><p className="text-xs font-bold text-neutral-300">Choose another date</p><p className="mt-1 text-[11px] text-neutral-600">Book up to {MAX_BOOKING_DAYS} days ahead. Past dates are disabled.</p></div>
                         <label className="relative block sm:w-64">
                             <span className="sr-only">Select booking date</span>
                             <input
                                 type="date"
                                 min={minimumDate}
+                                max={maximumDate}
                                 value={selectedDate}
                                 onChange={(event) => chooseDate(event.target.value)}
                                 className="w-full rounded-xl border border-white/[0.09] bg-black/50 px-4 py-3 text-sm font-semibold text-neutral-200 outline-none transition-colors focus:border-red-500/60 focus:ring-2 focus:ring-red-500/10"
@@ -171,7 +211,8 @@ export default function ClientScheduleSelection() {
                     </section>
 
                     <section className="dashboard-rise rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "240ms" }}>
-                        <SectionTitle icon="spark" title="Start time" text={selectedDate ? `${duration}-hour slots for selected date` : "Select a date first"} />
+                        <SectionTitle icon="spark" title="Start time" text={!selectedDate ? "Select a date first" : availabilityReady ? `${duration}-hour slots for selected date` : availability.error ? "Availability unavailable" : "Checking availability..."} />
+                        {availability.error && availability.date === selectedDate && <p className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{availability.error}<button type="button" onClick={retryLoad} className="font-bold underline underline-offset-2">Retry</button></p>}
                         <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map((minutes) => { const available = slotAvailable(minutes); const active = selectedTime === minutes && available; return <button key={minutes} type="button" onClick={() => chooseTime(minutes)} disabled={!available} className={`rounded-xl border px-2 py-3 text-xs font-bold ${active ? "border-red-500 bg-red-600 text-white" : available ? "border-white/[0.07] bg-white/[0.025] text-neutral-400 hover:text-white" : "cursor-not-allowed border-white/[0.04] text-neutral-800 line-through"}`}>{formatTime(minutes)}</button>; })}</div>
                     </section>
                 </div>
@@ -182,7 +223,7 @@ export default function ClientScheduleSelection() {
                         <button type="button" onClick={continueBooking} disabled={!selectedDate || !validTime} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600">Continue <Icon name="next" className="h-4 w-4 group-hover:translate-x-1" /></button>
                     </div>
                 </section>
-                <p className="mt-6 text-center text-[11px] text-neutral-700">Availability is a frontend preview until the booking API is connected.</p>
+                <p className="mt-6 text-center text-[11px] text-neutral-700">Crossed-out times are already booked or have passed.</p>
             </main>
         </div>
     );

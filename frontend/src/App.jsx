@@ -21,6 +21,7 @@ import ClientMembershipReview from "./pages/ClientMembershipReview";
 import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ClientMembershipHistory from "./pages/ClientMembershipHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ClientLayout from "./components/ClientLayout";
 
 export default function App() {
     const dispatch = useDispatch();
@@ -36,19 +37,21 @@ export default function App() {
                 <Route path="/login" element={<ClientLogin />} />
                 <Route path="/register" element={<ClientSignup />} />
                 <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
-                    <Route path="/client/dashboard" element={<ClientDashboard />} />
-                    <Route path="/client/profile" element={<ClientProfile />} />
-                    <Route path="/client/memberships" element={<ClientMemberships />} />
-                    <Route path="/client/memberships/review" element={<ClientMembershipReview />} />
-                    <Route path="/client/memberships/payment" element={<ClientMembershipPayment />} />
-                    <Route path="/client/memberships/manage" element={<ClientMembershipHistory />} />
-                    <Route path="/client/book" element={<ClientBooking />} />
-                    <Route path="/client/book/table" element={<ClientTableSelection />} />
-                    <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />
-                    <Route path="/client/book/review" element={<ClientBookingReview />} />
-                    <Route path="/client/bookings" element={<ClientBookings />} />
-                    <Route path="/client/bookings/:reference/reschedule" element={<ClientBookingReschedule />} />
-                    <Route path="/client/bookings/:reference/change-table" element={<ClientBookingTableChange />} />
+                    <Route element={<ClientLayout />}>
+                        <Route path="/client/dashboard" element={<ClientDashboard />} />
+                        <Route path="/client/profile" element={<ClientProfile />} />
+                        <Route path="/client/memberships" element={<ClientMemberships />} />
+                        <Route path="/client/memberships/review" element={<ClientMembershipReview />} />
+                        <Route path="/client/memberships/payment" element={<ClientMembershipPayment />} />
+                        <Route path="/client/memberships/manage" element={<ClientMembershipHistory />} />
+                        <Route path="/client/book" element={<ClientBooking />} />
+                        <Route path="/client/book/table" element={<ClientTableSelection />} />
+                        <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />
+                        <Route path="/client/book/review" element={<ClientBookingReview />} />
+                        <Route path="/client/bookings" element={<ClientBookings />} />
+                        <Route path="/client/bookings/:reference/reschedule" element={<ClientBookingReschedule />} />
+                        <Route path="/client/bookings/:reference/change-table" element={<ClientBookingTableChange />} />
+                    </Route>
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />

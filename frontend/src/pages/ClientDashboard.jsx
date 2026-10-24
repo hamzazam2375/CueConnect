@@ -1,21 +1,13 @@
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import SidebarToggle from "../components/SidebarToggle";
 import branches from "../data/branches";
 import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.jpg";
-import { getBookingsForUser } from "../utils/clientBookings";
+import { fetchClientBookings } from "../utils/clientBookings";
 import { getMembershipsForUser } from "../utils/clientMemberships";
-
-const navigation = [
-    { label: "Overview", icon: "grid", active: true },
-    { label: "Profile", icon: "user", href: "/client/profile" },
-    { label: "Book a table", icon: "calendar", href: "/client/book" },
-    { label: "My bookings", icon: "ticket", href: "/client/bookings" },
-    { label: "My membership", icon: "crown", href: "/client/memberships/manage" },
-    { label: "Loyalty points", icon: "star" },
-    { label: "Events", icon: "trophy", href: "/#events" }
-];
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
@@ -57,24 +49,6 @@ function Icon({ name, className = "h-5 w-5" }) {
     );
 }
 
-function SideNavItem({ item }) {
-    const classes = `group flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-300 ${
-        item.active
-            ? "bg-red-600 text-white shadow-lg shadow-red-950/40"
-            : "text-neutral-400 hover:bg-white/[0.05] hover:text-white"
-    }`;
-
-    const content = (
-        <>
-            <Icon name={item.icon} className={`h-[18px] w-[18px] transition-transform duration-300 ${item.active ? "" : "group-hover:scale-110"}`} />
-            <span>{item.label}</span>
-            {!item.href && !item.active && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-neutral-600">Soon</span>}
-        </>
-    );
-
-    return item.href ? <a href={item.href} className={classes}>{content}</a> : <div className={classes}>{content}</div>;
-}
-
 function StatCard({ icon, label, value, detail, delay }) {
     return (
         <article className="dashboard-rise dashboard-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-5" style={{ animationDelay: delay }}>
@@ -97,14 +71,22 @@ export default function ClientDashboard() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user, isLoading, error } = useSelector((state) => state.auth);
-    const bookings = getBookingsForUser(user);
+    const [bookings, setBookings] = useState([]);
     const memberships = getMembershipsForUser(user);
     const pendingMembership = memberships.find((membership) => membership.status === "payment_pending");
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
-    const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
     const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+    useEffect(() => {
+        let active = true;
+        // the stat card simply shows 0 if bookings can't be loaded
+        fetchClientBookings()
+            .then((data) => active && setBookings(data))
+            .catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     const handleLogout = async () => {
         try {
@@ -122,40 +104,16 @@ export default function ClientDashboard() {
                 <div className="absolute bottom-[-16rem] right-[-8rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" />
             </div>
 
-            <aside className="fixed inset-y-0 left-0 z-40 hidden w-[272px] border-r border-white/[0.07] bg-black/80 px-5 py-6 backdrop-blur-xl lg:flex lg:flex-col">
-                <Link to="/" className="px-2" aria-label="Goodshot home">
-                    <Logo blend={false} className="h-8 contrast-125 brightness-110" />
-                </Link>
-
-                <div className="mt-10 px-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600">Your space</div>
-                <nav className="mt-3 space-y-1.5" aria-label="Client dashboard navigation">
-                    {navigation.map((item) => <SideNavItem key={item.label} item={item} />)}
-                </nav>
-
-                <div className="mt-auto">
-                    <Link to="/client/profile" className="mb-3 block rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 transition-colors hover:border-red-500/20 hover:bg-red-500/[0.05]">
-                        <div className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-sm font-black shadow-lg shadow-red-950/50">{initials}</div>
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{user.firstName} {user.lastName}</p>
-                                <p className="truncate text-xs text-neutral-500">{user.email}</p>
-                            </div>
-                        </div>
-                    </Link>
-                    <button type="button" onClick={handleLogout} disabled={isLoading} className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium text-neutral-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed">
-                        <Icon name="logout" className="h-[18px] w-[18px]" />
-                        {isLoading ? "Signing out..." : "Sign out"}
-                    </button>
-                </div>
-            </aside>
-
-            <div className="relative lg:pl-[272px]">
+            <div className="relative">
                 <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
                     <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-7 lg:px-10">
-                        <Link to="/" className="lg:hidden" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
-                        <div className="hidden lg:block">
-                            <p className="text-xs text-neutral-500">{dateLabel}</p>
-                            <p className="mt-0.5 text-sm font-semibold text-neutral-200">Client dashboard</p>
+                        <div className="flex items-center gap-3">
+                            <SidebarToggle />
+                            <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
+                            <div className="ml-3 hidden border-l border-white/[0.08] pl-5 lg:block">
+                                <p className="text-xs text-neutral-500">{dateLabel}</p>
+                                <p className="mt-0.5 text-sm font-semibold text-neutral-200">Client dashboard</p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2.5">
                             <button type="button" className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white" aria-label="Notifications">
@@ -169,13 +127,6 @@ export default function ClientDashboard() {
                             </button>
                         </div>
                     </div>
-                    <nav className="dashboard-mobile-nav flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden" aria-label="Mobile dashboard navigation">
-                        {navigation.slice(0, 4).map((item) => item.href ? (
-                            <a key={item.label} href={item.href} className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-neutral-400">{item.label}</a>
-                        ) : (
-                            <span key={item.label} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${item.active ? "bg-red-600 text-white" : "border border-white/[0.08] bg-white/[0.03] text-neutral-500"}`}>{item.label}</span>
-                        ))}
-                    </nav>
                 </header>
 
                 <main className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10">

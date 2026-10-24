@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
-import branches from "../data/branches";
+import SidebarToggle from "../components/SidebarToggle";
+import { ErrorPanel, LoadingPanel } from "../components/LoadState";
+import { fetchBranchTables, getApiError } from "../utils/clientBookings";
 
 const BOOKING_BRANCH_KEY = "cueconnect_booking_branch";
 const BOOKING_TABLE_KEY = "cueconnect_booking_table";
@@ -58,7 +60,7 @@ function TableCard({ table, index, selected, onSelect }) {
     return (
         <button
             type="button"
-            onClick={() => isAvailable && onSelect(index)}
+            onClick={() => isAvailable && onSelect(table.id)}
             disabled={!isAvailable}
             className={`dashboard-rise dashboard-card group relative overflow-hidden rounded-3xl border p-5 text-left transition-all sm:p-6 ${
                 selected
@@ -100,36 +102,57 @@ export default function ClientTableSelection() {
     const { user } = useSelector((state) => state.auth);
     const navigate = useNavigate();
     const branchId = sessionStorage.getItem(BOOKING_BRANCH_KEY);
-    const branch = branches.find((item) => item.id === branchId);
-    const storedTable = sessionStorage.getItem(BOOKING_TABLE_KEY);
-    const [selectedTableIndex, setSelectedTableIndex] = useState(() => {
-        if (storedTable === null) return null;
-        const index = Number(storedTable);
-        return Number.isInteger(index) && index >= 0 && branch?.tables[index]?.status === "available" ? index : null;
-    });
+    const [selectedTableId, setSelectedTableId] = useState(() => sessionStorage.getItem(BOOKING_TABLE_KEY));
+    const [data, setData] = useState(null);
+    const [loadError, setLoadError] = useState("");
+    const [branchMissing, setBranchMissing] = useState(false);
+    const [reloadCount, setReloadCount] = useState(0);
 
-    if (!branch) {
+    useEffect(() => {
+        if (!branchId) return undefined;
+        let active = true;
+        fetchBranchTables(branchId)
+            .then((result) => active && setData(result))
+            .catch((error) => {
+                if (!active) return;
+                if (error.response?.status === 404) {
+                    sessionStorage.removeItem(BOOKING_BRANCH_KEY);
+                    setBranchMissing(true);
+                } else {
+                    setLoadError(getApiError(error, "Tables could not be loaded. Please try again."));
+                }
+            });
+        return () => { active = false; };
+    }, [branchId, reloadCount]);
+
+    if (!branchId || branchMissing) {
         return <Navigate to="/client/book" replace />;
     }
 
-    const selectedTable = selectedTableIndex === null ? null : branch.tables[selectedTableIndex];
+    const branch = data?.branch;
+    const selectedTable = data?.tables.find((table) => table.id === selectedTableId && table.status === "available") || null;
 
-    const selectTable = (index) => {
-        if (selectedTableIndex === index) {
-            setSelectedTableIndex(null);
+    const retryLoad = () => {
+        setLoadError("");
+        setReloadCount((count) => count + 1);
+    };
+
+    const selectTable = (tableId) => {
+        if (selectedTableId === tableId) {
+            setSelectedTableId(null);
             sessionStorage.removeItem(BOOKING_TABLE_KEY);
             clearScheduleSelection();
             return;
         }
 
-        setSelectedTableIndex(index);
-        sessionStorage.setItem(BOOKING_TABLE_KEY, String(index));
+        setSelectedTableId(tableId);
+        sessionStorage.setItem(BOOKING_TABLE_KEY, tableId);
         clearScheduleSelection();
     };
 
     const continueBooking = () => {
         if (!selectedTable) return;
-        sessionStorage.setItem(BOOKING_TABLE_KEY, String(selectedTableIndex));
+        sessionStorage.setItem(BOOKING_TABLE_KEY, selectedTable.id);
         navigate("/client/book/schedule");
     };
 
@@ -142,7 +165,7 @@ export default function ClientTableSelection() {
 
             <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
                 <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7">
-                    <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link>
+                    <div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
                     <div className="flex items-center gap-3">
                         <div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div>
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div>
@@ -155,6 +178,7 @@ export default function ClientTableSelection() {
                     <Icon name="arrowLeft" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Change branch
                 </Link>
 
+                {loadError ? <ErrorPanel message={loadError} onRetry={retryLoad} /> : !branch ? <LoadingPanel label="Loading tables" /> : <>
                 <section className="dashboard-rise mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · {branch.code}</p>
@@ -183,8 +207,9 @@ export default function ClientTableSelection() {
                 </div>
 
                 <section className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={`Tables at ${branch.name}`}>
-                    {branch.tables.map((table, index) => <TableCard key={`${branch.id}-${table.name}`} table={table} index={index} selected={selectedTableIndex === index} onSelect={selectTable} />)}
+                    {data.tables.map((table, index) => <TableCard key={table.id} table={table} index={index} selected={selectedTable?.id === table.id} onSelect={selectTable} />)}
                 </section>
+                {!data.tables.length && <p className="mt-4 rounded-3xl border border-dashed border-white/[0.1] px-6 py-12 text-center text-sm text-neutral-500">This branch has no tables yet. Please choose another branch.</p>}
 
                 <section className="dashboard-rise mt-6 rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 backdrop-blur sm:p-6" style={{ animationDelay: "480ms" }}>
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -202,6 +227,7 @@ export default function ClientTableSelection() {
                 </section>
 
                 <p className="mt-6 text-center text-[11px] text-neutral-700">Click the selected table again to clear it. Occupied and maintenance tables cannot be selected.</p>
+                </>}
             </main>
         </div>
     );
