@@ -44,6 +44,13 @@ export function Icon({ name, className = "h-5 w-5" }) {
         x: <path d="M18 6L6 18M6 6l12 12" />,
         check: <path d="M20 6L9 17l-5-5" />,
         search: <><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></>,
+        trendingUp: <><path d="M23 6l-9.5 9.5-5-5L1 18" /><path d="M17 6h6v6" /></>,
+        trendingDown: <><path d="M23 18l-9.5-9.5-5 5L1 6" /><path d="M17 18h6v-6" /></>,
+        arrowDown: <><path d="M12 5v14M19 12l-7 7-7-7" /></>,
+        hourglass: <><path d="M5 22h14M5 2h14M12 12L7.5 7C6.5 6 6 4.7 6 3.5V2h12v1.5c0 1.2-.5 2.5-1.5 3.5L12 12z" /><path d="M12 12l4.5 5c1 1 1.5 2.3 1.5 3.5V22H6v-1.5c0-1.2.5-2.5 1.5-3.5L12 12z" /></>,
+        pieChart: <><path d="M21.21 15.89A10 10 0 118 2.83" /><path d="M22 12A10 10 0 0012 2v10z" /></>,
+        zap: <><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></>,
+        activity: <><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>,
     };
     return (
         <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
