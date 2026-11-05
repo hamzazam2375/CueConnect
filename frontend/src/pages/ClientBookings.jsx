@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
-import { cancelClientBooking, getBookingsForUser } from "../utils/clientBookings";
+import SidebarToggle from "../components/SidebarToggle";
+import { ErrorPanel, LoadingPanel } from "../components/LoadState";
+import { cancelClientBooking, fetchClientBookings, getApiError } from "../utils/clientBookings";
 
 const statusStyles = {
     pending: "border-amber-500/20 bg-amber-500/10 text-amber-400",
     approved: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
     completed: "border-blue-500/20 bg-blue-500/10 text-blue-400",
+    rejected: "border-red-500/20 bg-red-500/10 text-red-400",
     cancelled: "border-neutral-600/30 bg-neutral-700/20 text-neutral-500"
 };
 
@@ -61,23 +64,42 @@ function BookingCard({ booking, onView, delay }) {
 
 export default function ClientBookings() {
     const { user } = useSelector((state) => state.auth);
-    const [bookings, setBookings] = useState(() => getBookingsForUser(user));
+    const [bookings, setBookings] = useState(null);
+    const [loadError, setLoadError] = useState("");
+    const [reloadCount, setReloadCount] = useState(0);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [bookingToCancel, setBookingToCancel] = useState(null);
-    const pendingCount = bookings.filter((booking) => booking.status === "pending").length;
+    const pendingCount = bookings?.filter((booking) => booking.status === "pending").length ?? 0;
+
+    useEffect(() => {
+        let active = true;
+        fetchClientBookings()
+            .then((data) => active && setBookings(data))
+            .catch((error) => active && setLoadError(getApiError(error, "Your bookings could not be loaded. Please try again.")));
+        return () => { active = false; };
+    }, [reloadCount]);
+
+    const retryLoad = () => {
+        setLoadError("");
+        setReloadCount((count) => count + 1);
+    };
 
     return (
         <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
             <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /><div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" /></div>
-            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
+            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
 
             <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">
                 <Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link>
                 <section className="dashboard-rise mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your activity</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My bookings.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Track all your table requests in one place.</p></div><Link to="/client/book" className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-red-500">New booking <Icon name="arrow" className="h-4 w-4" /></Link></section>
 
-                <section className="dashboard-rise mt-8 grid grid-cols-2 gap-3 sm:max-w-lg" style={{ animationDelay: "80ms" }}><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Total bookings</p><p className="mt-2 text-3xl font-black">{bookings.length}</p></div><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Pending</p><p className="mt-2 text-3xl font-black text-amber-400">{pendingCount}</p></div></section>
+                <section className="dashboard-rise mt-8 grid grid-cols-2 gap-3 sm:max-w-lg" style={{ animationDelay: "80ms" }}><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Total bookings</p><p className="mt-2 text-3xl font-black">{bookings?.length ?? 0}</p></div><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Pending</p><p className="mt-2 text-3xl font-black text-amber-400">{pendingCount}</p></div></section>
 
-                {bookings.length ? (
+                {loadError ? (
+                    <ErrorPanel message={loadError} onRetry={retryLoad} />
+                ) : !bookings ? (
+                    <LoadingPanel label="Loading bookings" />
+                ) : bookings.length ? (
                     <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Your bookings">{bookings.map((booking, index) => <BookingCard key={booking.reference} booking={booking} onView={setSelectedBooking} delay={`${120 + index * 55}ms`} />)}</section>
                 ) : (
                     <section className="dashboard-rise mt-8 rounded-3xl border border-dashed border-white/[0.1] bg-neutral-950/60 px-6 py-16 text-center" style={{ animationDelay: "120ms" }}><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-red-500/10 text-red-400"><Icon name="ticket" className="h-7 w-7" /></span><h2 className="mt-5 text-xl font-black">No bookings yet</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-neutral-600">Your confirmed booking requests will appear here.</p><Link to="/client/book" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold hover:bg-red-500">Book your first table <Icon name="arrow" className="h-4 w-4" /></Link></section>
@@ -117,10 +139,10 @@ function BookingModal({ booking, onClose, onCancel }) {
                 </dl>
                 <div className="mt-5 flex items-end justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Duration</p><p className="mt-1 text-sm font-bold text-neutral-300">{booking.duration} {booking.duration === 1 ? "hour" : "hours"}</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Estimated total</p><p className="mt-1 text-xl font-black text-red-400">PKR {booking.total.toLocaleString()}</p></div></div>
                 {booking.status === "cancelled" && booking.cancellationReason && <div className="mt-5 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-wider text-red-500/70">Cancellation reason</p><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{booking.cancellationReason}</p></div>}
+                {booking.status === "rejected" && booking.rejectionReason && <div className="mt-5 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-wider text-red-500/70">Reason from the club</p><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{booking.rejectionReason}</p></div>}
                 {booking.status === "pending" && <Link to={`/client/bookings/${encodeURIComponent(booking.reference)}/reschedule`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white"><Icon name="calendar" className="h-4 w-4" /> Reschedule booking</Link>}
                 {booking.status === "pending" && <Link to={`/client/bookings/${encodeURIComponent(booking.reference)}/change-table`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white"><Icon name="table" className="h-4 w-4" /> Change table</Link>}
                 {canCancel && <button type="button" onClick={() => onCancel(booking)} className="mt-6 w-full rounded-xl border border-red-500/20 bg-red-500/[0.07] px-4 py-3 text-xs font-bold text-red-400 transition-colors hover:bg-red-500/15">Cancel booking</button>}
-                <p className="mt-6 rounded-xl bg-white/[0.025] px-4 py-3 text-center text-[10px] leading-relaxed text-neutral-600">This booking is stored locally until backend booking sync is connected.</p>
             </article>
         </div>
     );
@@ -131,16 +153,16 @@ function CancellationModal({ booking, onClose, onCancelled }) {
     const [isCancelling, setIsCancelling] = useState(false);
     const [error, setError] = useState("");
 
-    const confirmCancellation = () => {
+    const confirmCancellation = async () => {
         if (isCancelling) return;
         setIsCancelling(true);
         setError("");
 
         try {
-            const updatedBooking = cancelClientBooking(booking.reference, reason);
+            const updatedBooking = await cancelClientBooking(booking.reference, reason);
             onCancelled(updatedBooking);
         } catch (cancellationError) {
-            setError(cancellationError.message || "Booking could not be cancelled.");
+            setError(getApiError(cancellationError, "Booking could not be cancelled."));
             setIsCancelling(false);
         }
     };
