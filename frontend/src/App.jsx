@@ -5,6 +5,7 @@ import { fetchCurrentUser } from "./store/authSlice";
 import Home from "./pages/Home";
 import AdminLogin from "./pages/AdminLogin";
 import AdminSignup from "./pages/AdminSignup";
+import AdminSignupComplete from "./pages/AdminSignupComplete";
 import ClientLogin from "./pages/ClientLogin";
 import ClientSignup from "./pages/ClientSignup";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -20,6 +21,8 @@ import ClientMemberships from "./pages/ClientMemberships";
 import ClientMembershipReview from "./pages/ClientMembershipReview";
 import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ClientMembershipHistory from "./pages/ClientMembershipHistory";
+import AdminDashboard from "./pages/AdminDashboard";
+import TableManagement from "./pages/TableManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ClientLayout from "./components/ClientLayout";
 
@@ -53,8 +56,13 @@ export default function App() {
                         <Route path="/client/bookings/:reference/change-table" element={<ClientBookingTableChange />} />
                     </Route>
                 </Route>
+                <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+                    <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                    <Route path="/admin/tables" element={<TableManagement/>} />
+                </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />
+                <Route path="/admin/register/complete" element={<AdminSignupComplete />} />
             </Routes>
         </BrowserRouter>
     );
