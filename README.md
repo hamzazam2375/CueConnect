@@ -247,7 +247,7 @@ Other
                     │      React Client    │
                     │                      │
                     │ React + Tailwind     │
-                    │ Redux + React Router  │
+                    │ Redux + React Router │
                     └──────────┬───────────┘
                                │
                          REST APIs
@@ -258,7 +258,7 @@ Other
                     │ Authentication       │
                     │ Business Logic       │
                     │ Middleware           │
-                    │ REST APIs             │
+                    │ REST APIs            │
                     └───────┬──────────────┘
                             │
                      ┌──────▼───┐
