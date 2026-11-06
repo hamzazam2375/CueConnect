@@ -1,3 +1,6 @@
+import { Link } from "react-router-dom";
+
+// `event` comes from GET /api/events
 export default function EventCard({ event, branchName }) {
     const formattedDate = new Date(event.date).toLocaleDateString("en-PK", {
         weekday: "short",
@@ -5,6 +8,7 @@ export default function EventCard({ event, branchName }) {
         month: "short",
         day: "numeric"
     });
+    const formattedTime = new Date(event.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
     return (
         <div className="bg-neutral-900 border border-white/10 rounded-xl p-6 hover:border-red-500/40 transition-all duration-300">
@@ -25,7 +29,7 @@ export default function EventCard({ event, branchName }) {
 
             <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
                 <span>{formattedDate}</span>
-                <span>{event.time}</span>
+                <span>{formattedTime}</span>
             </div>
 
             <p className="text-gray-400 text-sm leading-relaxed mb-4">
@@ -37,10 +41,23 @@ export default function EventCard({ event, branchName }) {
                 {event.prize && (
                     <span className="text-yellow-400 font-semibold">🏅 {event.prize}</span>
                 )}
-                {event.fee > 0 && (
-                    <span className="text-gray-400">Entry: PKR {event.fee}</span>
-                )}
+                <span className="text-gray-400">
+                    {event.registrationFee > 0 ? `Entry: PKR ${event.registrationFee.toLocaleString()}` : "Free entry"}
+                </span>
             </div>
+
+            {event.registrationOpen ? (
+                <Link
+                    to={`/client/events/${event.id}`}
+                    className="mt-5 block rounded-lg bg-red-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-red-500"
+                >
+                    Register
+                </Link>
+            ) : (
+                <p className="mt-5 rounded-lg border border-white/10 px-4 py-2.5 text-center text-sm text-gray-500">
+                    {event.spotsLeft === 0 ? "Fully booked" : "Registration closed"}
+                </p>
+            )}
         </div>
     );
 }

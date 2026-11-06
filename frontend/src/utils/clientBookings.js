@@ -1,4 +1,5 @@
 import api from "../services/api";
+import { fetchProofUrl, postWithProof } from "./payments";
 
 // keep in sync with MAX_BOOKING_DAYS in backend/src/controllers/clientBookingController.js
 export const MAX_BOOKING_DAYS = 30;
@@ -34,10 +35,30 @@ export const fetchClientBooking = async (reference) => {
     return data.booking;
 };
 
-export const createClientBooking = async ({ tableId, date, startTime, duration }) => {
-    const { data } = await api.post("/client/bookings", { tableId, date, startTime, duration });
+// keep in sync with ADVANCE_RATE in backend/src/controllers/clientBookingController.js
+export const ADVANCE_RATE = 0.5;
+export const getAdvanceAmount = (total) => Math.ceil(total * ADVANCE_RATE);
+
+// mirrors the backend: `membership` comes from fetchBranchTables and only counts
+// while it is still running when the slot starts
+export const getBookingPrice = ({ hourlyRate, duration, membership, dateKey, startTime }) => {
+    const subtotal = hourlyRate * duration;
+    let discount = 0;
+    if (membership && dateKey && Number.isFinite(startTime)) {
+        const [year, month, day] = dateKey.split("-").map(Number);
+        const slotStart = Date.UTC(year, month - 1, day) + startTime * 60 * 1000;
+        if (new Date(membership.expiryDate).getTime() > slotStart) discount = membership.discount;
+    }
+    const total = Math.round(subtotal * (100 - discount) / 100);
+    return { subtotal, discount, discountAmount: subtotal - total, total };
+};
+
+export const createClientBooking = async ({ tableId, date, startTime, duration, paymentAccountId, transactionId, paymentProof, loyaltyPoints = 0 }) => {
+    const data = await postWithProof("/client/bookings", { tableId, date, startTime, duration, paymentAccountId, transactionId, loyaltyPoints }, paymentProof);
     return data.booking;
 };
+
+export const fetchBookingProofUrl = (reference) => fetchProofUrl(`/client/bookings/${encodeURIComponent(reference)}/payment-proof`);
 
 export const cancelClientBooking = async (reference, reason = "") => {
     const { data } = await api.patch(`/client/bookings/${encodeURIComponent(reference)}/cancel`, { reason });
@@ -75,4 +96,19 @@ export const formatOpeningHours = (branch) => {
         return `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
     };
     return `${format(branch.openingTime)} – ${format(branch.closingTime)}`;
+};
+
+export const fetchClientWaitlist = async () => {
+    const { data } = await api.get("/client/waitlist");
+    return data.waitlist;
+};
+
+export const joinWaitlist = async ({ tableId, date, startTime, duration }) => {
+    const { data } = await api.post("/client/waitlist", { tableId, date, startTime, duration });
+    return data.entry;
+};
+
+export const leaveWaitlist = async (id) => {
+    const { data } = await api.patch(`/client/waitlist/${encodeURIComponent(id)}/cancel`);
+    return data.entry;
 };

@@ -31,6 +31,12 @@ const notificationSchema = new mongoose.Schema(
             required: true
         },
 
+        // client route the notification opens, e.g. /client/bookings
+        link: {
+            type: String,
+            default: null
+        },
+
         isRead: {
             type: Boolean,
             default: false
@@ -40,5 +46,7 @@ const notificationSchema = new mongoose.Schema(
         timestamps: true
     }
 );
+
+notificationSchema.index({ user: 1, createdAt: -1 });
 
 export default mongoose.model("Notification", notificationSchema);

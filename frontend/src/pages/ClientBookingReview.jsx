@@ -3,8 +3,12 @@ import { useSelector } from "react-redux";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { createClientBooking, fetchBranchTables, formatOpeningHours, getApiError } from "../utils/clientBookings";
+import PaymentProofForm from "../components/PaymentProofForm";
+import { createClientBooking, fetchBranchTables, formatOpeningHours, getAdvanceAmount, getApiError, getBookingPrice } from "../utils/clientBookings";
+import { TRANSACTION_ID } from "../utils/payments";
+import { fetchClientLoyalty, maxRedeemablePoints, POINT_VALUE } from "../utils/loyalty";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -25,7 +29,8 @@ function Icon({ name, className = "h-5 w-5" }) {
         edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" /></>,
         shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></>,
         arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>
+        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>,
+        star: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2l-5-4.9 6.9-1z" />
     };
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -92,6 +97,20 @@ export default function ClientBookingReview() {
     const [loadError, setLoadError] = useState("");
     const [branchMissing, setBranchMissing] = useState(false);
     const [reloadCount, setReloadCount] = useState(0);
+    const [accountId, setAccountId] = useState(null);
+    const [transactionId, setTransactionId] = useState("");
+    const [proofFile, setProofFile] = useState(null);
+    const [pointsBalance, setPointsBalance] = useState(0);
+    const [pointsInput, setPointsInput] = useState("");
+
+    // without a balance the points card just stays hidden
+    useEffect(() => {
+        let active = true;
+        fetchClientLoyalty()
+            .then((result) => active && setPointsBalance(result.points))
+            .catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         if (!branchId) return undefined;
@@ -126,16 +145,25 @@ export default function ClientBookingReview() {
     if (!scheduleValid) return <Navigate to="/client/book/schedule" replace />;
 
     const endTime = startTime + duration * 60;
-    const total = table.pricePerHour * duration;
+    const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: dateValue, startTime });
+    const maxPoints = Math.min(pointsBalance, maxRedeemablePoints(price.total));
+    const pointsUsed = Math.min(Math.max(Number.parseInt(pointsInput, 10) || 0, 0), maxPoints);
+    const pointsDiscount = pointsUsed * POINT_VALUE;
+    const total = price.total - pointsDiscount;
+    const advance = getAdvanceAmount(total);
+    const accounts = branch.paymentAccounts;
+    const account = accounts.find((item) => item.id === accountId);
+    const transactionValid = TRANSACTION_ID.test(transactionId.trim());
+    const canSubmit = accepted && account && transactionValid && proofFile && !isSubmitting;
     const displayDate = bookingDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
     const confirmBooking = async () => {
-        if (!accepted || isSubmitting) return;
+        if (!canSubmit) return;
         setIsSubmitting(true);
         setSaveError("");
 
         try {
-            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration });
+            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration, paymentAccountId: account.id, transactionId: transactionId.trim(), paymentProof: proofFile, loyaltyPoints: pointsUsed });
             clearDraft();
             setConfirmedBooking(booking);
         } catch (error) {
@@ -147,7 +175,7 @@ export default function ClientBookingReview() {
     return (
         <PageShell user={user}>
             <Link to="/client/book/schedule" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Edit schedule</Link>
-            <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · Final step</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your booking.</h1><p className="mt-3 max-w-2xl text-sm text-neutral-500 sm:text-base">Check every detail before confirming your table request.</p></section>
+            <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · Final step</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your booking.</h1><p className="mt-3 max-w-2xl text-sm text-neutral-500 sm:text-base">Check every detail, pay the advance, and send your table request.</p></section>
             <Progress />
 
             <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -159,26 +187,52 @@ export default function ClientBookingReview() {
                         <DetailCard icon="clock" label="Schedule" title={`${formatTime(startTime)} – ${formatTime(endTime)}`} detail={`${duration} ${duration === 1 ? "hour" : "hours"} of play`} editTo="/client/book/schedule" />
                     </div>
 
+                    {maxPoints > 0 && <LoyaltyPointsCard balance={pointsBalance} maxPoints={maxPoints} value={pointsInput} onChange={setPointsInput} pointsUsed={pointsUsed} />}
+
+                    <PaymentProofForm amount={advance} label="Advance payment" unavailableText="This club has not added a payment account yet, so the advance cannot be paid online. Please contact the club or choose another branch." accounts={accounts} accountId={accountId} onAccountChange={setAccountId} transactionId={transactionId} onTransactionIdChange={setTransactionId} proofFile={proofFile} onProofChange={setProofFile} />
+
                     <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
-                        <div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400"><Icon name="shield" className="h-4 w-4" /></span><div><h2 className="text-sm font-bold">Booking rules</h2><ul className="mt-3 space-y-2 text-xs leading-relaxed text-neutral-500"><li>· Please arrive at least 10 minutes before your selected time.</li><li>· Your request remains pending until the club confirms availability.</li><li>· Advance payment requirements will be communicated after approval.</li><li>· Late arrival may reduce your reserved playing time.</li></ul></div></div>
+                        <div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400"><Icon name="shield" className="h-4 w-4" /></span><div><h2 className="text-sm font-bold">Booking rules</h2><ul className="mt-3 space-y-2 text-xs leading-relaxed text-neutral-500"><li>· Please arrive at least 10 minutes before your selected time.</li><li>· A 50% advance is required to send the request; the rest is paid at the club.</li><li>· The club approves your booking once your payment is verified. Requests with unverifiable payments are rejected.</li><li>· Late arrival may reduce your reserved playing time.</li></ul></div></div>
                     </article>
                 </section>
 
                 <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6 lg:sticky lg:top-6" style={{ animationDelay: "200ms" }}>
                     <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name="receipt" /></span><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Price summary</p><h2 className="mt-0.5 text-lg font-bold">Booking total</h2></div></div>
-                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div><div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
-                    <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Estimated total</p><p className="mt-1 text-xs text-neutral-600">Payable after approval</p></div><p className="text-2xl font-black text-red-400">PKR {total.toLocaleString()}</p></div>
+                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div>{price.discount > 0 && <div className="flex justify-between text-neutral-500"><span>{data.membership.plan} member · {price.discount}% off</span><span className="text-emerald-400">− PKR {price.discountAmount.toLocaleString()}</span></div>}{pointsUsed > 0 && <div className="flex justify-between text-neutral-500"><span>{pointsUsed.toLocaleString()} loyalty points</span><span className="text-emerald-400">− PKR {pointsDiscount.toLocaleString()}</span></div>}<div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
+                    <div className="space-y-3 border-b border-white/[0.07] py-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Booking total</span><span className="font-semibold text-neutral-300">PKR {total.toLocaleString()}</span></div><div className="flex justify-between text-neutral-500"><span>Pay at club</span><span>PKR {(total - advance).toLocaleString()}</span></div></div>
+                    <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Advance now</p><p className="mt-1 text-xs text-neutral-600">50% of the total</p></div><p className="text-2xl font-black text-red-400">PKR {advance.toLocaleString()}</p></div>
 
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3.5">
                         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" />
                         <span className="text-[11px] leading-relaxed text-neutral-500">I have reviewed the booking details and agree to the club rules.</span>
                     </label>
                     {saveError && <p className="mt-3 text-xs text-red-400" role="alert">{saveError}</p>}
-                    <button type="button" onClick={confirmBooking} disabled={!accepted || isSubmitting} className="group mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{isSubmitting ? "Sending request..." : "Confirm booking"} <Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button>
-                    <p className="mt-3 text-center text-[10px] leading-relaxed text-neutral-700">No payment will be charged at this stage.</p>
+                    <button type="button" onClick={confirmBooking} disabled={!canSubmit} className="group mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{isSubmitting ? "Sending request..." : "Confirm booking & payment"} <Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button>
+                    <p className="mt-3 text-center text-[10px] leading-relaxed text-neutral-700">{account && transactionValid && proofFile ? "The club will verify your payment and approve the booking." : "Select an account, enter the transaction ID, and upload proof to continue."}</p>
                 </aside>
             </div>
         </PageShell>
+    );
+}
+
+function LoyaltyPointsCard({ balance, maxPoints, value, onChange, pointsUsed }) {
+    const setPoints = (next) => onChange(next ? String(next) : "");
+    return (
+        <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-400"><Icon name="star" className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-bold">Use loyalty points</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">You have {balance.toLocaleString()} points. Up to {maxPoints.toLocaleString()} can be used on this booking, at PKR {POINT_VALUE} each.</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <input type="number" inputMode="numeric" min="0" max={maxPoints} step="1" value={value} onChange={(event) => onChange(event.target.value)} placeholder="0" aria-label="Points to use" className="w-32 rounded-xl border border-white/[0.08] bg-black/40 px-3.5 py-2.5 text-sm font-semibold text-white outline-none focus:border-amber-500/40" />
+                        <button type="button" onClick={() => setPoints(maxPoints)} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20">Use {maxPoints.toLocaleString()}</button>
+                        {pointsUsed > 0 && <button type="button" onClick={() => setPoints(0)} className="rounded-xl px-3 py-2.5 text-xs font-bold text-neutral-500 transition-colors hover:text-white">Clear</button>}
+                    </div>
+                    {Number(value) > maxPoints && <p className="mt-2 text-[11px] text-amber-400">Only {maxPoints.toLocaleString()} points can be used here, so that is what will be applied.</p>}
+                </div>
+            </div>
+        </article>
     );
 }
 
@@ -186,7 +240,7 @@ function PageShell({ user, children }) {
     return (
         <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
             <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /><div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" /></div>
-            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
+            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
             <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{children}</main>
         </div>
     );
@@ -198,7 +252,7 @@ function BookingSuccess({ booking, user }) {
         <PageShell user={user}>
             <section className="dashboard-rise mx-auto max-w-2xl py-8 text-center sm:py-16">
                 <div className="relative mx-auto grid h-24 w-24 place-items-center"><span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/10" /><span className="relative grid h-20 w-20 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"><Icon name="check" className="h-9 w-9" /></span></div>
-                <p className="mt-7 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-400">Request received</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Booking request sent.</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-neutral-500">Your table is reserved while the club reviews your request. You can follow its status in My bookings.</p>
+                <p className="mt-7 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-400">Request received</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Booking request sent.</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-neutral-500">Your table is held while the club verifies your PKR {booking.advanceAmount.toLocaleString()} advance. You can follow its status in My bookings.</p>
                 <div className="mx-auto mt-8 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-6 text-left"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-neutral-600">Booking reference</p><p className="mt-2 break-all text-2xl font-black tracking-wider text-red-400">{booking.reference}</p><div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/[0.07] pt-5 text-sm"><div><p className="text-[9px] uppercase text-neutral-700">Club</p><p className="mt-1 font-bold text-neutral-300">{booking.branchName.replace("GOODSHOT ", "")}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Table</p><p className="mt-1 font-bold text-neutral-300">{booking.tableName}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Date</p><p className="mt-1 font-bold text-neutral-300">{parseDate(booking.date).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Time</p><p className="mt-1 font-bold text-neutral-300">{formatTime(booking.startTime)} – {formatTime(booking.endTime)}</p></div></div></div>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/client/dashboard" className="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold transition-colors hover:bg-red-500">Go to dashboard</Link><Link to="/client/book" onClick={bookAnother} className="rounded-xl border border-white/[0.09] bg-white/[0.03] px-6 py-3 text-sm font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">Book another table</Link></div>
             </section>

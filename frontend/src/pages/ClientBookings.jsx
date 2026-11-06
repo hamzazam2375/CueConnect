@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { cancelClientBooking, fetchClientBookings, getApiError } from "../utils/clientBookings";
+import { useNotifications } from "../components/notificationsContext";
+import { cancelClientBooking, fetchBookingProofUrl, fetchClientBookings, fetchClientWaitlist, getApiError, leaveWaitlist } from "../utils/clientBookings";
+import { paymentMethodLabels } from "../utils/payments";
 
 const statusStyles = {
     pending: "border-amber-500/20 bg-amber-500/10 text-amber-400",
@@ -24,7 +27,8 @@ function Icon({ name, className = "h-5 w-5" }) {
         pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
         ticket: <><path d="M2 9a3 3 0 0 0 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 0 0 0-6V6a2 2 0 0 0-2-2z" /><path d="M13 5v2m0 4v2m0 4v2" /></>,
         close: <path d="M18 6 6 18M6 6l12 12" />,
-        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6m-6 4h6m-6 4h3" /></>
+        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6m-6 4h6m-6 4h3" /></>,
+        wallet: <><path d="M4 6h14a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h13" /><path d="M16 11h6v5h-6a2.5 2.5 0 0 1 0-5Z" /></>
     };
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -69,6 +73,8 @@ export default function ClientBookings() {
     const [reloadCount, setReloadCount] = useState(0);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [bookingToCancel, setBookingToCancel] = useState(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tab = searchParams.get("tab") === "waitlist" ? "waitlist" : "bookings";
     const pendingCount = bookings?.filter((booking) => booking.status === "pending").length ?? 0;
 
     useEffect(() => {
@@ -87,15 +93,17 @@ export default function ClientBookings() {
     return (
         <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
             <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /><div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" /></div>
-            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
+            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header>
 
             <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">
                 <Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link>
-                <section className="dashboard-rise mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your activity</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My bookings.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Track all your table requests in one place.</p></div><Link to="/client/book" className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-red-500">New booking <Icon name="arrow" className="h-4 w-4" /></Link></section>
+                <section className="dashboard-rise mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your activity</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My bookings.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Track your table requests and waitlisted times in one place.</p></div><Link to="/client/book" className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-red-500">New booking <Icon name="arrow" className="h-4 w-4" /></Link></section>
 
                 <section className="dashboard-rise mt-8 grid grid-cols-2 gap-3 sm:max-w-lg" style={{ animationDelay: "80ms" }}><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Total bookings</p><p className="mt-2 text-3xl font-black">{bookings?.length ?? 0}</p></div><div className="rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Pending</p><p className="mt-2 text-3xl font-black text-amber-400">{pendingCount}</p></div></section>
 
-                {loadError ? (
+                <div className="dashboard-rise mt-8 inline-flex rounded-2xl border border-white/[0.08] bg-neutral-950/80 p-1.5" role="tablist" aria-label="Booking views" style={{ animationDelay: "100ms" }}>{[["bookings", "Bookings"], ["waitlist", "Waitlist"]].map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setSearchParams(value === "waitlist" ? { tab: "waitlist" } : {}, { replace: true })} className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all ${tab === value ? "bg-red-600 text-white shadow-lg shadow-red-950/40" : "text-neutral-500 hover:bg-white/[0.05] hover:text-white"}`}>{label}</button>)}</div>
+
+                {tab === "waitlist" ? <WaitlistView /> : loadError ? (
                     <ErrorPanel message={loadError} onRetry={retryLoad} />
                 ) : !bookings ? (
                     <LoadingPanel label="Loading bookings" />
@@ -122,13 +130,107 @@ export default function ClientBookings() {
     );
 }
 
+const waitlistStyles = {
+    waiting: { label: "Waiting", className: "border-amber-500/20 bg-amber-500/10 text-amber-400" },
+    notified: { label: "Free now", className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" },
+    booked: { label: "Booked", className: "border-blue-500/20 bg-blue-500/10 text-blue-400" },
+    expired: { label: "Expired", className: "border-neutral-600/30 bg-neutral-700/20 text-neutral-500" },
+    cancelled: { label: "Left", className: "border-neutral-600/30 bg-neutral-700/20 text-neutral-500" }
+};
+
+// keys of the booking flow; "Book now" fills them and jumps to the review step
+const BOOKING_KEYS = {
+    branch: "cueconnect_booking_branch",
+    table: "cueconnect_booking_table",
+    date: "cueconnect_booking_date",
+    time: "cueconnect_booking_time",
+    duration: "cueconnect_booking_duration"
+};
+
+function WaitlistView() {
+    const navigate = useNavigate();
+    const { notifications } = useNotifications();
+    const latestNotificationId = notifications[0]?.id;
+    const [entries, setEntries] = useState(null);
+    const [loadError, setLoadError] = useState("");
+    const [reloadCount, setReloadCount] = useState(0);
+    const [leavingId, setLeavingId] = useState(null);
+    const [error, setError] = useState("");
+
+    // reload when a new notification arrives, since it may be about a freed slot
+    useEffect(() => {
+        let active = true;
+        fetchClientWaitlist()
+            .then((data) => active && setEntries(data))
+            .catch((fetchError) => active && setLoadError(getApiError(fetchError, "Your waitlist could not be loaded. Please try again.")));
+        return () => { active = false; };
+    }, [reloadCount, latestNotificationId]);
+
+    const retryLoad = () => {
+        setLoadError("");
+        setReloadCount((count) => count + 1);
+    };
+
+    const leave = async (entry) => {
+        if (leavingId) return;
+        setLeavingId(entry.id);
+        setError("");
+        try {
+            const updated = await leaveWaitlist(entry.id);
+            setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
+        } catch (leaveError) {
+            setError(getApiError(leaveError, "Could not leave the waitlist."));
+        } finally {
+            setLeavingId(null);
+        }
+    };
+
+    const bookNow = (entry) => {
+        sessionStorage.setItem(BOOKING_KEYS.branch, entry.branchId);
+        sessionStorage.setItem(BOOKING_KEYS.table, entry.tableId);
+        sessionStorage.setItem(BOOKING_KEYS.date, entry.date);
+        sessionStorage.setItem(BOOKING_KEYS.time, String(entry.startTime));
+        sessionStorage.setItem(BOOKING_KEYS.duration, String(entry.duration));
+        navigate("/client/book/review");
+    };
+
+    if (loadError) return <ErrorPanel message={loadError} onRetry={retryLoad} />;
+    if (!entries) return <LoadingPanel label="Loading waitlist" />;
+    if (!entries.length) {
+        return <section className="dashboard-rise mt-6 rounded-3xl border border-dashed border-white/[0.1] bg-neutral-950/60 px-6 py-16 text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-500/10 text-amber-400"><Icon name="clock" className="h-7 w-7" /></span><h2 className="mt-5 text-xl font-black">No waitlisted times</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-neutral-600">When a time you want is booked, tap it on the schedule to join its waitlist. We notify you the moment it frees up.</p><Link to="/client/book" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold hover:bg-red-500">Find a table <Icon name="arrow" className="h-4 w-4" /></Link></section>;
+    }
+
+    return (
+        <>
+            {error && <p className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}
+            <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Your waitlist">
+                {entries.map((entry, index) => {
+                    const style = waitlistStyles[entry.status] || waitlistStyles.waiting;
+                    const active = entry.status === "waiting" || entry.status === "notified";
+                    return (
+                        <article key={entry.id} className={`dashboard-rise dashboard-card rounded-3xl border p-5 sm:p-6 ${entry.status === "notified" ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-white/[0.08] bg-neutral-950/80"}`} style={{ animationDelay: `${120 + index * 55}ms` }}>
+                            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Waitlist</p><h2 className="mt-2 text-xl font-black text-white">{entry.branchName.replace("GOODSHOT ", "")}</h2><p className="mt-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">{entry.tableName} · {entry.tableType}</p></div><span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider ${style.className}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{style.label}</span></div>
+                            <div className="mt-6 grid grid-cols-2 gap-3 border-y border-white/[0.07] py-4">
+                                <div className="flex items-center gap-2"><Icon name="calendar" className="h-4 w-4 text-red-500" /><span><span className="block text-[9px] uppercase text-neutral-700">Date</span><span className="block text-xs font-bold text-neutral-300">{formatDate(entry.date, { weekday: "short", month: "short", day: "numeric" })}</span></span></div>
+                                <div className="flex items-center gap-2"><Icon name="clock" className="h-4 w-4 text-red-500" /><span><span className="block text-[9px] uppercase text-neutral-700">Time</span><span className="block text-xs font-bold text-neutral-300">{formatTime(entry.startTime)} – {formatTime(entry.endTime)}</span></span></div>
+                            </div>
+                            <p className="mt-4 text-xs text-neutral-600">{entry.status === "waiting" ? "We will notify you if this time frees up." : entry.status === "notified" ? "This time is free. The first person to book it gets it." : entry.status === "booked" ? "You booked this time." : entry.status === "expired" ? "This time has passed." : "You left this waitlist."}</p>
+                            {active && <div className="mt-4 flex gap-3">{entry.status === "notified" && <button type="button" onClick={() => bookNow(entry)} className="flex-1 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-black text-black transition-colors hover:bg-emerald-400">Book now</button>}<button type="button" onClick={() => leave(entry)} disabled={leavingId === entry.id} className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-400 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-wait">{leavingId === entry.id ? "Leaving..." : "Leave waitlist"}</button></div>}
+                        </article>
+                    );
+                })}
+            </section>
+        </>
+    );
+}
+
 function BookingModal({ booking, onClose, onCancel }) {
     const canCancel = ["pending", "approved"].includes(booking.status);
 
     return (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="booking-detail-title">
             <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close booking details" />
-            <article className="dashboard-rise relative z-10 w-full max-w-lg rounded-3xl border border-white/[0.1] bg-neutral-950 p-6 shadow-2xl shadow-black sm:p-7">
+            <article className="dashboard-rise relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/[0.1] bg-neutral-950 p-6 shadow-2xl shadow-black sm:p-7">
                 <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-red-500">Booking details</p><h2 id="booking-detail-title" className="mt-2 text-xl font-black">{booking.reference}</h2></div><button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500 hover:bg-white/[0.05] hover:text-white" aria-label="Close"><Icon name="close" className="h-4 w-4" /></button></div>
                 <div className="mt-5"><StatusBadge status={booking.status} /></div>
                 <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-white/[0.07] py-5">
@@ -137,7 +239,8 @@ function BookingModal({ booking, onClose, onCancel }) {
                     <Detail icon="calendar" label="Date" value={formatDate(booking.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" })} />
                     <Detail icon="clock" label="Schedule" value={`${formatTime(booking.startTime)} – ${formatTime(booking.endTime)}`} />
                 </dl>
-                <div className="mt-5 flex items-end justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Duration</p><p className="mt-1 text-sm font-bold text-neutral-300">{booking.duration} {booking.duration === 1 ? "hour" : "hours"}</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Estimated total</p><p className="mt-1 text-xl font-black text-red-400">PKR {booking.total.toLocaleString()}</p></div></div>
+                <div className="mt-5 flex items-end justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Duration</p><p className="mt-1 text-sm font-bold text-neutral-300">{booking.duration} {booking.duration === 1 ? "hour" : "hours"}</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Estimated total</p><p className="mt-1 text-xl font-black text-red-400">PKR {booking.total.toLocaleString()}</p>{booking.membershipDiscount > 0 && <p className="mt-1 text-[10px] font-semibold text-emerald-400">{booking.membershipDiscount}% member discount · saved PKR {booking.discountAmount.toLocaleString()}</p>}{booking.loyaltyPointsUsed > 0 && <p className="mt-1 text-[10px] font-semibold text-amber-400">{booking.loyaltyPointsUsed.toLocaleString()} points used · saved PKR {booking.loyaltyDiscount.toLocaleString()}</p>}</div></div>
+                {booking.hasPaymentProof && <PaymentDetails booking={booking} />}
                 {booking.status === "cancelled" && booking.cancellationReason && <div className="mt-5 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-wider text-red-500/70">Cancellation reason</p><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{booking.cancellationReason}</p></div>}
                 {booking.status === "rejected" && booking.rejectionReason && <div className="mt-5 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3"><p className="text-[9px] font-bold uppercase tracking-wider text-red-500/70">Reason from the club</p><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{booking.rejectionReason}</p></div>}
                 {booking.status === "pending" && <Link to={`/client/bookings/${encodeURIComponent(booking.reference)}/reschedule`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white"><Icon name="calendar" className="h-4 w-4" /> Reschedule booking</Link>}
@@ -178,6 +281,42 @@ function CancellationModal({ booking, onClose, onCancelled }) {
                 {error && <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400" role="alert">{error}</p>}
                 <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={onClose} disabled={isCancelling} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold text-neutral-400 transition-colors hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed">Keep booking</button><button type="button" onClick={confirmCancellation} disabled={isCancelling} className="rounded-xl bg-red-600 px-4 py-3 text-xs font-bold text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-red-900">{isCancelling ? "Cancelling..." : "Yes, cancel"}</button></div>
             </article>
+        </div>
+    );
+}
+
+function PaymentDetails({ booking }) {
+    const [proofUrl, setProofUrl] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState("");
+    const account = booking.paymentAccount;
+
+    useEffect(() => () => proofUrl && URL.revokeObjectURL(proofUrl), [proofUrl]);
+
+    const toggleProof = async () => {
+        if (proofUrl) return setProofUrl(null);
+        setIsLoading(true);
+        setError("");
+        try {
+            setProofUrl(await fetchBookingProofUrl(booking.reference));
+        } catch (proofError) {
+            setError(getApiError(proofError, "Payment proof could not be loaded."));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+            <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2.5"><Icon name="wallet" className="h-4 w-4 text-red-500" /><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Advance paid</p><p className="mt-1 text-sm font-bold text-neutral-200">PKR {booking.advanceAmount.toLocaleString()}</p></div></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Pay at club</p><p className="mt-1 text-sm font-bold text-neutral-400">PKR {booking.remainingAmount.toLocaleString()}</p></div></div>
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-4 text-xs">
+                <div><dt className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Paid to</dt><dd className="mt-1 truncate font-bold text-neutral-300">{account ? `${paymentMethodLabels[account.method] || account.method} · ${account.accountNumber}` : "—"}</dd></div>
+                <div><dt className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Transaction ID</dt><dd className="mt-1 truncate font-bold text-neutral-300">{booking.transactionId}</dd></div>
+            </dl>
+            {booking.status === "pending" && <p className="mt-3 text-[11px] text-amber-400/80">The club is verifying your payment.</p>}
+            <button type="button" onClick={toggleProof} disabled={isLoading} className="mt-4 text-[11px] font-bold text-neutral-400 transition-colors hover:text-red-400 disabled:cursor-wait">{isLoading ? "Loading proof..." : proofUrl ? "Hide payment proof" : "View payment proof"}</button>
+            {error && <p className="mt-2 text-[11px] text-red-400" role="alert">{error}</p>}
+            {proofUrl && <img src={proofUrl} alt={`Payment proof for ${booking.reference}`} className="mt-3 max-h-64 w-full rounded-xl border border-white/[0.07] object-contain" />}
         </div>
     );
 }

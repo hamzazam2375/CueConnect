@@ -3,8 +3,9 @@ import { useSelector } from "react-redux";
 import { Link, Navigate, useParams } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { changeClientBookingTable, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, hasSlotStarted, isTableFree } from "../utils/clientBookings";
+import { changeClientBookingTable, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, getBookingPrice, hasSlotStarted, isTableFree } from "../utils/clientBookings";
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -25,7 +26,7 @@ const formatTime = (minutes) => {
     return `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
 };
 
-function TableOption({ table, index, duration, isCurrent, selected, scheduleFits, onSelect }) {
+function TableOption({ table, index, total, isCurrent, selected, scheduleFits, onSelect }) {
     const generallyAvailable = table.status === "available";
     const selectable = generallyAvailable && scheduleFits;
     const status = isCurrent
@@ -43,7 +44,7 @@ function TableOption({ table, index, duration, isCurrent, selected, scheduleFits
         <button type="button" disabled={!selectable} onClick={() => selectable && onSelect(table.id)} className={`dashboard-rise dashboard-card relative rounded-3xl border p-5 text-left sm:p-6 ${selected ? "border-red-500/70 bg-gradient-to-br from-red-950/50 to-neutral-950 shadow-[0_20px_70px_rgba(127,29,29,0.18)]" : selectable ? "border-white/[0.08] bg-neutral-950/80 hover:border-white/15" : "cursor-not-allowed border-white/[0.05] bg-neutral-950/45 opacity-60"}`} style={{ animationDelay: `${90 + index * 55}ms` }}>
             <div className="flex items-start justify-between gap-3"><span className={`grid h-11 w-11 place-items-center rounded-xl border ${selected ? "border-red-500/25 bg-red-500/15 text-red-400" : "border-white/[0.07] bg-white/[0.035] text-neutral-500"}`}><Icon name="table" /></span><span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider ${statusClass}`}>{status}</span></div>
             <div className="mt-5 flex items-end justify-between"><div><h2 className="text-xl font-black">{table.name}</h2><p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">{table.type}</p></div>{selected ? <span className="grid h-7 w-7 place-items-center rounded-full bg-red-600"><Icon name="check" className="h-4 w-4" /></span> : !selectable && <Icon name={table.status === "maintenance" ? "tool" : "lock"} className="h-5 w-5 text-neutral-700" />}</div>
-            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/[0.07] pt-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Hourly</p><p className="mt-1 text-sm font-bold text-neutral-300">PKR {table.pricePerHour}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">New total</p><p className="mt-1 text-sm font-bold text-red-400">PKR {(table.pricePerHour * duration).toLocaleString()}</p></div></div>
+            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/[0.07] pt-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Hourly</p><p className="mt-1 text-sm font-bold text-neutral-300">PKR {table.pricePerHour}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">New total</p><p className="mt-1 text-sm font-bold text-red-400">PKR {total.toLocaleString()}</p></div></div>
         </button>
     );
 }
@@ -65,12 +66,12 @@ export default function ClientBookingTableChange() {
         let active = true;
         fetchClientBooking(reference)
             .then(async (booking) => {
-                const [{ branch, tables }, busy] = await Promise.all([
+                const [{ branch, tables, membership }, busy] = await Promise.all([
                     fetchBranchTables(booking.branchId),
                     fetchBranchAvailability(booking.branchId, booking.date, reference)
                 ]);
                 if (!active) return;
-                setData({ booking, branch, tables, busy });
+                setData({ booking, branch, tables, membership, busy });
                 setSelectedId(booking.tableId);
             })
             .catch((loadFailure) => {
@@ -102,7 +103,8 @@ export default function ClientBookingTableChange() {
         && isTableFree(busy, tableId, booking.startTime, booking.endTime);
     const selectedTable = tables.find((table) => table.id === selectedId);
     const selectionChanged = selectedId !== booking.tableId;
-    const newTotal = selectedTable ? selectedTable.pricePerHour * booking.duration : booking.total;
+    const totalFor = (table) => getBookingPrice({ hourlyRate: table.pricePerHour, duration: booking.duration, membership: data.membership, dateKey: booking.date, startTime: booking.startTime }).total;
+    const newTotal = selectedTable ? totalFor(selectedTable) : booking.total;
 
     const saveTable = async () => {
         if (isSaving || !selectionChanged || !selectedTable || selectedTable.status !== "available" || !scheduleFitsTable(selectedId)) return;
@@ -123,7 +125,7 @@ export default function ClientBookingTableChange() {
             <section className="dashboard-rise mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Change table · {booking.reference}</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Choose another table.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Your branch and schedule will remain unchanged.</p></div><div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-2.5 text-xs text-neutral-400"><strong className="text-white">{branch.name.replace("GOODSHOT ", "")}</strong><span className="mx-2 text-neutral-700">·</span>{formatTime(booking.startTime)} – {formatTime(booking.endTime)}</div></section>
 
             <div className="mt-8 flex flex-wrap gap-4 text-[10px] font-semibold uppercase tracking-wider text-neutral-600"><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Available</span><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-400" /> Current</span><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-neutral-600" /> Unavailable</span></div>
-            <section className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{tables.map((table, index) => <TableOption key={table.id} table={table} index={index} duration={booking.duration} isCurrent={table.id === booking.tableId} selected={table.id === selectedId} scheduleFits={scheduleFitsTable(table.id)} onSelect={(value) => { setSelectedId(value); setError(""); }} />)}</section>
+            <section className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{tables.map((table, index) => <TableOption key={table.id} table={table} index={index} total={totalFor(table)} isCurrent={table.id === booking.tableId} selected={table.id === selectedId} scheduleFits={scheduleFitsTable(table.id)} onSelect={(value) => { setSelectedId(value); setError(""); }} />)}</section>
 
             <section className="dashboard-rise mt-6 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6" style={{ animationDelay: "440ms" }}><div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"><div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Current table" value={booking.tableName} /><Summary label="Selected table" value={selectedTable?.name || "—"} /><Summary label="Duration" value={`${booking.duration} ${booking.duration === 1 ? "hour" : "hours"}`} /><Summary label="New total" value={`PKR ${newTotal.toLocaleString()}`} accent /></div><button type="button" onClick={saveTable} disabled={isSaving || !selectionChanged || !selectedTable || !scheduleFitsTable(selectedId)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600"><Icon name="save" className="h-4 w-4" />{isSaving ? "Saving..." : "Save table"}</button></div>{error && <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}</section>
             <p className="mt-6 text-center text-[11px] text-neutral-700">Only the table and recalculated price will change.</p>
@@ -132,7 +134,7 @@ export default function ClientBookingTableChange() {
 }
 
 function PageShell({ user, children }) {
-    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{children}</main></div>;
+    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{children}</main></div>;
 }
 
 function Summary({ label, value, accent = false }) {

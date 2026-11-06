@@ -3,27 +3,21 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
-import branches from "../data/branches";
+import NotificationBell from "../components/NotificationBell";
 import { logout } from "../store/authSlice";
-import tableImage from "../../assets/table.jpg";
-import { fetchClientBookings } from "../utils/clientBookings";
-import { getMembershipsForUser } from "../utils/clientMemberships";
+import tableImage from "../../assets/table.webp";
+import { fetchBookingBranches, fetchClientBookings } from "../utils/clientBookings";
+import { fetchClientMemberships, findCurrentMembership } from "../utils/clientMemberships";
+import { fetchClientLoyalty } from "../utils/loyalty";
+import { fetchClientEvents } from "../utils/clientEvents";
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
-    { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/#events", accent: "amber" },
+    { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/client/events", accent: "amber" },
     { title: "Memberships", description: "Unlock discounts and perks", icon: "crown", href: "/client/memberships", accent: "violet" },
     { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
 
-const allEvents = branches
-    .flatMap((branch) => branch.events.map((event) => ({ ...event, branchName: branch.name })))
-    .sort((first, second) => new Date(first.date) - new Date(second.date));
-
-const availableTables = branches.reduce(
-    (total, branch) => total + branch.tables.filter((table) => table.status === "available").length,
-    0
-);
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -36,7 +30,6 @@ function Icon({ name, className = "h-5 w-5" }) {
         trophy: <><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H3v2a4 4 0 0 0 4 4M17 6h4v2a4 4 0 0 1-4 4" /></>,
         history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
         arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
-        bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
         pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
         logout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /></>,
         spark: <><path d="m12 3-1.2 4.8L6 9l4.8 1.2L12 15l1.2-4.8L18 9l-4.8-1.2z" /><path d="m5 15-.6 2.4L2 18l2.4.6L5 21l.6-2.4L8 18l-2.4-.6z" /></>
@@ -72,8 +65,13 @@ export default function ClientDashboard() {
     const navigate = useNavigate();
     const { user, isLoading, error } = useSelector((state) => state.auth);
     const [bookings, setBookings] = useState([]);
-    const memberships = getMembershipsForUser(user);
-    const pendingMembership = memberships.find((membership) => membership.status === "payment_pending");
+    const [memberships, setMemberships] = useState([]);
+    const [points, setPoints] = useState(0);
+    const [events, setEvents] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const availableTables = branches.reduce((total, branch) => total + branch.availableCount, 0);
+    const currentMembership = findCurrentMembership(memberships);
+    const membershipTitle = !currentMembership ? "Cue Club Basic" : currentMembership.status === "active" ? `${currentMembership.plan} member` : `${currentMembership.plan} awaiting verification`;
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -85,6 +83,21 @@ export default function ClientDashboard() {
         fetchClientBookings()
             .then((data) => active && setBookings(data))
             .catch(() => {});
+        // the membership cards fall back to the basic tier if this fails
+        fetchClientMemberships()
+            .then((data) => active && setMemberships(data))
+            .catch(() => {});
+        fetchClientLoyalty()
+            .then((data) => active && setPoints(data.points))
+            .catch(() => {});
+        // the tables card shows 0 if this fails
+        fetchBookingBranches()
+            .then((data) => active && setBranches(data))
+            .catch(() => {});
+        // the events card shows its empty state if this fails
+        fetchClientEvents()
+            .then((data) => active && setEvents(data))
+            .catch(() => active && setEvents([]));
         return () => { active = false; };
     }, []);
 
@@ -108,7 +121,7 @@ export default function ClientDashboard() {
                 <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
                     <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-7 lg:px-10">
                         <div className="flex items-center gap-3">
-                            <SidebarToggle />
+                            <SidebarToggle /><NotificationBell />
                             <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
                             <div className="ml-3 hidden border-l border-white/[0.08] pl-5 lg:block">
                                 <p className="text-xs text-neutral-500">{dateLabel}</p>
@@ -116,10 +129,6 @@ export default function ClientDashboard() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <button type="button" className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white" aria-label="Notifications">
-                                <Icon name="bell" className="h-[18px] w-[18px]" />
-                                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-black" />
-                            </button>
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
                             <Link to="/client/profile" className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400" aria-label="Profile settings"><Icon name="user" className="h-[18px] w-[18px]" /></Link>
                             <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
@@ -147,9 +156,9 @@ export default function ClientDashboard() {
 
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
                         <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
-                        <StatCard icon="star" label="Loyalty points" value="0" detail="Play to earn points" delay="140ms" />
-                        <StatCard icon="crown" label="Membership" value={pendingMembership ? "Pending" : "Basic"} detail={pendingMembership ? `${pendingMembership.plan} payment pending` : "Explore premium plans"} delay="200ms" />
-                        <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} branches`} delay="260ms" />
+                        <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} off bookings` : "Play to earn points"} delay="140ms" />
+                        <StatCard icon="crown" label="Membership" value={!currentMembership ? "Basic" : currentMembership.status === "active" ? currentMembership.plan : "Pending"} detail={!currentMembership ? "Explore premium plans" : currentMembership.status === "active" ? `Expires ${new Date(currentMembership.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : `${currentMembership.plan} awaiting verification`} delay="200ms" />
+                        <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} ${branches.length === 1 ? "branch" : "branches"}`} delay="260ms" />
                     </section>
 
                     <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
@@ -184,18 +193,18 @@ export default function ClientDashboard() {
 
                         <div className="space-y-6">
                             <article className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "360ms" }}>
-                                <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Your status</p><h2 className="mt-1 text-xl font-bold">{pendingMembership ? `${pendingMembership.plan} payment pending` : "Cue Club Basic"}</h2>{pendingMembership && <p className="mt-1 text-[10px] text-amber-400">Ref: {pendingMembership.reference}</p>}</div><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 text-neutral-300"><Icon name="crown" /></span></div>
-                                <div className="mt-7 flex items-end justify-between"><div><p className="text-3xl font-black">0 <span className="text-sm font-medium text-neutral-500">points</span></p><p className="mt-1 text-xs text-neutral-500">500 points to Silver</p></div><span className="text-xs font-bold text-neutral-400">0%</span></div>
-                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="dashboard-progress h-full w-[4%] rounded-full bg-gradient-to-r from-red-700 to-red-500" /></div>
+                                <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Your status</p><h2 className="mt-1 text-xl font-bold">{membershipTitle}</h2>{currentMembership?.status === "pending" && <p className="mt-1 text-[10px] text-amber-400">Ref: {currentMembership.reference}</p>}</div><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 text-neutral-300"><Icon name="crown" /></span></div>
+                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">1 point for every PKR 100 you pay</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
                                 <Link to={memberships.length ? "/client/memberships/manage" : "/client/memberships"} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">{memberships.length ? "Manage memberships" : "Explore membership plans"} <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
                             </article>
 
                             <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "440ms" }}>
-                                <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Coming up</p><h2 className="mt-1 text-xl font-bold">Club events</h2></div><a href="/#events" className="text-xs font-semibold text-neutral-500 transition-colors hover:text-red-400">View all</a></div>
+                                <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Coming up</p><h2 className="mt-1 text-xl font-bold">Club events</h2></div><Link to="/client/events" className="text-xs font-semibold text-neutral-500 transition-colors hover:text-red-400">View all</Link></div>
                                 <div className="mt-5 space-y-3">
-                                    {allEvents.slice(0, 3).map((event) => {
-                                        const date = new Date(`${event.date}T12:00:00`);
-                                        return <a href="/#events" key={`${event.branchName}-${event.title}`} className="group flex gap-3 rounded-xl border border-transparent p-2 transition-all hover:border-white/[0.06] hover:bg-white/[0.025]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-500/10 text-center"><span><span className="block text-[9px] font-bold uppercase tracking-wider text-red-400">{date.toLocaleString("en", { month: "short" })}</span><span className="block text-lg font-black leading-none">{date.getDate()}</span></span></span><span className="min-w-0 py-0.5"><span className="block truncate text-sm font-bold text-neutral-200 transition-colors group-hover:text-white">{event.title}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-neutral-500"><Icon name="pin" className="h-3 w-3" /> {event.branchName.replace("GOODSHOT ", "")}</span></span></a>;
+                                    {events && !events.length && <p className="rounded-xl border border-dashed border-white/[0.08] px-4 py-6 text-center text-xs text-neutral-600">No upcoming events yet. New tournaments will show up here.</p>}
+                                    {events?.slice(0, 3).map((event) => {
+                                        const date = new Date(event.date);
+                                        return <Link to={event.registrationOpen && !event.registration ? `/client/events/${event.id}` : "/client/events"} key={event.id} className="group flex gap-3 rounded-xl border border-transparent p-2 transition-all hover:border-white/[0.06] hover:bg-white/[0.025]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-500/10 text-center"><span><span className="block text-[9px] font-bold uppercase tracking-wider text-red-400">{date.toLocaleString("en", { month: "short" })}</span><span className="block text-lg font-black leading-none">{date.getDate()}</span></span></span><span className="min-w-0 py-0.5"><span className="block truncate text-sm font-bold text-neutral-200 transition-colors group-hover:text-white">{event.title}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-neutral-500"><Icon name="pin" className="h-3 w-3" /> {event.branchName.replace("GOODSHOT ", "")}</span></span></Link>;
                                     })}
                                 </div>
                             </article>

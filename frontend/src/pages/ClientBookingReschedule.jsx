@@ -3,8 +3,9 @@ import { useSelector } from "react-redux";
 import { Link, Navigate, useParams } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, getSlotTimes, hasSlotStarted, isTableFree, rescheduleClientBooking } from "../utils/clientBookings";
+import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, getBookingPrice, getSlotTimes, hasSlotStarted, isTableFree, rescheduleClientBooking } from "../utils/clientBookings";
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -63,10 +64,10 @@ export default function ClientBookingReschedule() {
         let active = true;
         fetchClientBooking(reference)
             .then(async (booking) => {
-                const { branch, tables } = await fetchBranchTables(booking.branchId);
+                const { branch, tables, membership } = await fetchBranchTables(booking.branchId);
                 if (!active) return;
                 const originalDateIsValid = fromDateKey(booking.date) >= getToday();
-                setData({ booking, branch, table: tables.find((item) => item.id === booking.tableId) });
+                setData({ booking, branch, membership, table: tables.find((item) => item.id === booking.tableId) });
                 setSelectedDate(originalDateIsValid ? booking.date : "");
                 setDuration([1, 2, 3].includes(booking.duration) ? booking.duration : 1);
                 setSelectedTime(originalDateIsValid ? booking.startTime : null);
@@ -150,7 +151,8 @@ export default function ClientBookingReschedule() {
     };
 
     const validTime = selectedTime !== null && slots.includes(selectedTime) && slotAvailable(selectedTime);
-    const total = table.pricePerHour * duration;
+    const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: selectedDate, startTime: validTime ? selectedTime : Number.NaN });
+    const { total } = price;
 
     const saveSchedule = async () => {
         if (isSaving || !selectedDate || !validTime) return;
@@ -185,14 +187,14 @@ export default function ClientBookingReschedule() {
                 <section className="dashboard-rise rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "200ms" }}><SectionTitle icon="spark" title="Start time" text={!selectedDate ? "Select a date first" : availabilityReady ? `${duration}-hour available slots` : availability.error ? "Availability unavailable" : "Checking availability..."} />{availability.error && availability.date === selectedDate && <p className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{availability.error}<button type="button" onClick={retryLoad} className="font-bold underline underline-offset-2">Retry</button></p>}<div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map((minutes) => { const available = slotAvailable(minutes); const active = selectedTime === minutes && available; return <button key={minutes} type="button" onClick={() => chooseTime(minutes)} disabled={!available} className={`rounded-xl border px-2 py-3 text-xs font-bold ${active ? "border-red-500 bg-red-600 text-white" : available ? "border-white/[0.07] bg-white/[0.025] text-neutral-400 hover:text-white" : "cursor-not-allowed border-white/[0.04] text-neutral-800 line-through"}`}>{formatTime(minutes)}</button>; })}</div></section>
             </div>
 
-            <section className="dashboard-rise mt-5 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6" style={{ animationDelay: "260ms" }}><div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"><div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Date" value={selectedDate ? fromDateKey(selectedDate).toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"} /><Summary label="Starts" value={validTime ? formatTime(selectedTime) : "—"} /><Summary label="Ends" value={validTime ? formatTime(selectedTime + duration * 60) : "—"} /><Summary label="New total" value={`PKR ${total.toLocaleString()}`} accent /></div><button type="button" onClick={saveSchedule} disabled={isSaving || !selectedDate || !validTime} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600"><Icon name="save" className="h-4 w-4" />{isSaving ? "Saving..." : "Save new schedule"}</button></div>{error && <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}</section>
+            <section className="dashboard-rise mt-5 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6" style={{ animationDelay: "260ms" }}><div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"><div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Date" value={selectedDate ? fromDateKey(selectedDate).toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"} /><Summary label="Starts" value={validTime ? formatTime(selectedTime) : "—"} /><Summary label="Ends" value={validTime ? formatTime(selectedTime + duration * 60) : "—"} /><Summary label={price.discount ? `New total · ${price.discount}% off` : "New total"} value={`PKR ${total.toLocaleString()}`} accent /></div><button type="button" onClick={saveSchedule} disabled={isSaving || !selectedDate || !validTime} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600"><Icon name="save" className="h-4 w-4" />{isSaving ? "Saving..." : "Save new schedule"}</button></div>{error && <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}</section>
             <p className="mt-6 text-center text-[11px] text-neutral-700">Only this booking’s date, time, duration, and estimated total will change.</p>
         </PageShell>
     );
 }
 
 function PageShell({ user, children }) {
-    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{children}</main></div>;
+    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">{children}</main></div>;
 }
 
 function SectionTitle({ icon, title, text }) {

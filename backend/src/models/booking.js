@@ -56,6 +56,18 @@ const bookingSchema = new mongoose.Schema(
             required: true
         },
 
+        // percent off from the client's membership, applied to hourlyRate * duration
+        membershipDiscount: {
+            type: Number,
+            default: 0
+        },
+
+        // loyalty points spent on this booking; each point takes PKR 1 off the total
+        loyaltyPointsUsed: {
+            type: Number,
+            default: 0
+        },
+
         totalAmount: {
             type: Number,
             required: true
@@ -67,14 +79,34 @@ const bookingSchema = new mongoose.Schema(
             default: "pending"
         },
 
+        // amount the client paid upfront; the rest is paid at the club
         advanceAmount: {
             type: Number,
             default: 0
         },
 
-        // path to uploaded payment proof image
+        // branch payment account the advance was sent to
+        paymentAccount: {
+            method: { type: String, default: null },
+            provider: { type: String, default: null },
+            accountTitle: { type: String, default: null },
+            accountNumber: { type: String, default: null }
+        },
+
+        // transaction ID from the client's receipt, checked by admin against the account
+        transactionId: {
+            type: String,
+            default: null
+        },
+
+        // file name of the uploaded payment proof inside uploads/payment-proofs
         paymentProof: {
             type: String,
+            default: null
+        },
+
+        paymentSubmittedAt: {
+            type: Date,
             default: null
         },
 
