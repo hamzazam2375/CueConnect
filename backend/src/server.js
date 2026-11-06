@@ -1,7 +1,8 @@
-
 import "dotenv/config";
-import "./config/dnsResolver.js";
+import dns from "node:dns";
 import express from "express";
+
+dns.setDefaultResultOrder("ipv4first");
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
