@@ -17,7 +17,7 @@ const paymentSchema = new mongoose.Schema(
         // what this payment is for
         type: {
             type: String,
-            enum: ["game", "booking", "membership", "event"],
+            enum: ["game", "bill", "booking", "membership", "event"],
             required: true
         },
 

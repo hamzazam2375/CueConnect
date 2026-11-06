@@ -3,6 +3,7 @@ import Game from "../models/game.js";
 import Bill from "../models/bill.js";
 import Table from "../models/table.js";
 import User from "../models/user.js";
+import { OPEN_BILL_STATUSES, createBillReference, reapplyDiscountBreakdown, roundMoney } from "../utils/billMath.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -86,25 +87,37 @@ const calculateCharges = (game, table, endTime) => {
 };
 
 const findOrCreateBill = async ({ branchId, payerUser, payerName, amount, gameId }) => {
-    const filter = payerUser
-        ? { branchId, status: "pending", payerUser }
-        : { branchId, status: "pending", payerUser: null, payerName: new RegExp(`^${payerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
+    const filter = {
+        branchId,
+        status: { $in: OPEN_BILL_STATUSES },
+        ...(payerUser
+            ? { payerUser }
+            : { payerUser: null, payerName: new RegExp(`^${payerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") })
+    };
 
     let bill = await Bill.findOne(filter);
+    if (bill && !bill.reference) bill.reference = createBillReference();
     if (!bill) {
         bill = await Bill.create({
             branchId,
+            reference: createBillReference(),
             payerUser: payerUser || null,
             payerName,
             games: [gameId],
-            totalAmount: amount,
+            originalAmount: roundMoney(amount),
+            discountAmount: 0,
+            discountBreakdown: [],
+            totalAmount: roundMoney(amount),
+            paidAmount: 0,
+            remainingBalance: roundMoney(amount),
             status: "pending"
         });
         return bill;
     }
 
     bill.games.push(gameId);
-    bill.totalAmount += amount;
+    bill.originalAmount = roundMoney((bill.originalAmount || bill.totalAmount || 0) + amount);
+    reapplyDiscountBreakdown(bill);
     await bill.save();
     return bill;
 };

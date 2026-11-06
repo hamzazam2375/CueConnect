@@ -5,7 +5,6 @@ import Booking from "../models/booking.js";
 import Game from "../models/game.js";
 import Income from "../models/income.js";
 import Expense from "../models/expense.js";
-import Payment from "../models/payment.js";
 import Event from "../models/event.js";
 import Waitlist from "../models/waitlist.js";
 import {
@@ -16,6 +15,15 @@ import {
     startGame,
     stopGame
 } from "../controllers/adminGameController.js";
+import {
+    listBills,
+    getBill,
+    listBillDiscounts,
+    applyBillDiscount,
+    recordBillPayment,
+    downloadBillReceipt
+} from "../controllers/adminBillingController.js";
+import Bill from "../models/bill.js";
 
 const router = express.Router();
 
@@ -25,6 +33,13 @@ router.get("/games/history", protect, authorize("admin"), listGameHistory);
 router.post("/games", protect, authorize("admin"), startGame);
 router.get("/games/:id", protect, authorize("admin"), getGame);
 router.patch("/games/:id/stop", protect, authorize("admin"), stopGame);
+
+router.get("/bills", protect, authorize("admin"), listBills);
+router.get("/bills/:id/discounts", protect, authorize("admin"), listBillDiscounts);
+router.get("/bills/:id/receipt", protect, authorize("admin"), downloadBillReceipt);
+router.get("/bills/:id", protect, authorize("admin"), getBill);
+router.patch("/bills/:id/discount", protect, authorize("admin"), applyBillDiscount);
+router.post("/bills/:id/payments", protect, authorize("admin"), recordBillPayment);
 
 // GET /api/admin/dashboard-stats
 router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => {
@@ -64,8 +79,7 @@ router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => 
         ]);
         const todayExpenses = todayExpenseResult[0]?.total || 0;
 
-        // unpaid bills
-        const unpaidBills = await Payment.countDocuments({ branchId, status: "pending" });
+        const unpaidBills = await Bill.countDocuments({ branchId, status: { $in: ["pending", "partial"] } });
 
         // waitlist count (people currently waiting)
         const waitlistCount = await Waitlist.countDocuments({ branchId, status: "waiting" });
