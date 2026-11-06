@@ -24,6 +24,7 @@ import ClientMembershipHistory from "./pages/ClientMembershipHistory";
 import ClientLoyalty from "./pages/ClientLoyalty";
 import ClientEvents from "./pages/ClientEvents";
 import ClientEventRegister from "./pages/ClientEventRegister";
+import ClientHistory from "./pages/ClientHistory";
 import AdminDashboard from "./pages/AdminDashboard";
 import TableManagement from "./pages/TableManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -53,6 +54,7 @@ export default function App() {
                         <Route path="/client/loyalty" element={<ClientLoyalty />} />
                         <Route path="/client/events" element={<ClientEvents />} />
                         <Route path="/client/events/:eventId" element={<ClientEventRegister />} />
+                        <Route path="/client/history" element={<ClientHistory />} />
                         <Route path="/client/book" element={<ClientBooking />} />
                         <Route path="/client/book/table" element={<ClientTableSelection />} />
                         <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />

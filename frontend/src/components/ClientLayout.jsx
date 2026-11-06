@@ -14,7 +14,8 @@ const navigation = [
     { label: "My bookings", icon: "ticket", href: "/client/bookings", match: "/client/bookings" },
     { label: "My membership", icon: "crown", href: "/client/memberships/manage", match: "/client/memberships" },
     { label: "Loyalty points", icon: "star", href: "/client/loyalty", match: "/client/loyalty" },
-    { label: "Events", icon: "trophy", href: "/client/events", match: "/client/events" }
+    { label: "Events", icon: "trophy", href: "/client/events", match: "/client/events" },
+    { label: "My history", icon: "history", href: "/client/history", match: "/client/history" }
 ];
 
 function Icon({ name, className = "h-5 w-5" }) {
@@ -27,7 +28,8 @@ function Icon({ name, className = "h-5 w-5" }) {
         star: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2l-5-4.9 6.9-1z" />,
         trophy: <><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H3v2a4 4 0 0 0 4 4M17 6h4v2a4 4 0 0 1-4 4" /></>,
         logout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /></>,
-        close: <path d="M18 6 6 18M6 6l12 12" />
+        close: <path d="M18 6 6 18M6 6l12 12" />,
+        history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>
     };
 
     return (

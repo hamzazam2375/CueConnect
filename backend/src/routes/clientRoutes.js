@@ -30,6 +30,7 @@ import {
     markAllNotificationsRead
 } from "../controllers/clientNotificationController.js";
 import { getClientLoyalty } from "../controllers/clientLoyaltyController.js";
+import { getClientHistory } from "../controllers/clientHistoryController.js";
 import {
     listClientEvents,
     getClientEvent,
@@ -66,6 +67,7 @@ router.post("/waitlist", joinWaitlist);
 router.patch("/waitlist/:id/cancel", leaveWaitlist);
 
 router.get("/loyalty", getClientLoyalty);
+router.get("/history", getClientHistory);
 
 router.get("/events", listClientEvents);
 router.get("/events/:id", getClientEvent);
