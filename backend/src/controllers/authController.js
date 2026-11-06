@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import Branch from "../models/branch.js";
 import { sendOtpEmail } from "../services/emailService.js";
+import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOptions.js";
 
 // track failed secret key attempts per IP
 const attemptTracker = new Map();
@@ -381,13 +382,7 @@ export const clientLogin = async (req, res) => {
             { expiresIn: "7d" }
         );
 
-        // set token in HTTP-only cookie
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        });
+        res.cookie("token", token, authCookieOptions);
 
         res.status(200).json({
             message: "Login successful",
@@ -427,13 +422,7 @@ export const adminLogin = async (req, res) => {
             { expiresIn: "7d" }
         );
 
-        // set token in HTTP-only cookie
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        });
+        res.cookie("token", token, authCookieOptions);
 
         res.status(200).json({
             message: "Login successful",
@@ -524,11 +513,7 @@ export const changeClientPassword = async (req, res) => {
 
 // logout (clear cookie)
 export const logout = async (req, res) => {
-    res.clearCookie("token", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    });
+    res.clearCookie("token", clearAuthCookieOptions);
     res.status(200).json({ message: "Logged out successfully" });
 };
 
