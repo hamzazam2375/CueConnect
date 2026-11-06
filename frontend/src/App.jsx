@@ -23,6 +23,7 @@ import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ClientMembershipHistory from "./pages/ClientMembershipHistory";
 import AdminDashboard from "./pages/AdminDashboard";
 import TableManagement from "./pages/TableManagement";
+import AdminGames from "./pages/AdminGames";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ClientLayout from "./components/ClientLayout";
 
@@ -58,7 +59,8 @@ export default function App() {
                 </Route>
                 <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                    <Route path="/admin/tables" element={<TableManagement/>} />
+                    <Route path="/admin/tables" element={<TableManagement />} />
+                    <Route path="/admin/games" element={<AdminGames />} />
                 </Route>
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/register" element={<AdminSignup />} />

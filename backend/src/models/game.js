@@ -14,11 +14,17 @@ const gameSchema = new mongoose.Schema(
             required: true
         },
 
-        // registered user (null for walk-in customers)
+        // registered player (null for walk-in customers)
         user: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             default: null
+        },
+
+        playerName: {
+            type: String,
+            required: true,
+            trim: true
         },
 
         type: {
@@ -27,11 +33,34 @@ const gameSchema = new mongoose.Schema(
             required: true
         },
 
+        frameType: {
+            type: String,
+            enum: ["single", "double"],
+            default: null
+        },
+
         // who is paying for this game
         payer: {
             type: String,
             required: true,
             trim: true
+        },
+
+        payerUser: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+
+        bill: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Bill",
+            default: null
+        },
+
+        rateApplied: {
+            type: Number,
+            default: 0
         },
 
         startTime: {
@@ -75,5 +104,8 @@ const gameSchema = new mongoose.Schema(
         timestamps: true
     }
 );
+
+gameSchema.index({ branchId: 1, status: 1, startTime: 1 });
+gameSchema.index({ table: 1, status: 1 });
 
 export default mongoose.model("Game", gameSchema);
