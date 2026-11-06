@@ -1,4 +1,5 @@
 import api from "../services/api";
+import { fetchProofUrl, postWithProof } from "./payments";
 
 // keep in sync with MAX_BOOKING_DAYS in backend/src/controllers/clientBookingController.js
 export const MAX_BOOKING_DAYS = 30;
@@ -38,26 +39,12 @@ export const fetchClientBooking = async (reference) => {
 export const ADVANCE_RATE = 0.5;
 export const getAdvanceAmount = (total) => Math.ceil(total * ADVANCE_RATE);
 
-// keep in sync with backend/src/middleware/upload.js
-export const PROOF_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const MAX_PROOF_SIZE = 5 * 1024 * 1024;
-
-export const paymentMethodLabels = { jazzcash: "JazzCash", easypaisa: "Easypaisa", bank: "Bank transfer" };
-
 export const createClientBooking = async ({ tableId, date, startTime, duration, paymentAccountId, transactionId, paymentProof }) => {
-    const form = new FormData();
-    Object.entries({ tableId, date, startTime, duration, paymentAccountId, transactionId }).forEach(([key, value]) => form.append(key, value));
-    form.append("paymentProof", paymentProof);
-    // the multipart header stops axios from converting the form to JSON; the browser adds the boundary
-    const { data } = await api.post("/client/bookings", form, { headers: { "Content-Type": "multipart/form-data" } });
+    const data = await postWithProof("/client/bookings", { tableId, date, startTime, duration, paymentAccountId, transactionId }, paymentProof);
     return data.booking;
 };
 
-// resolves to an object URL for the proof image; revoke it when done
-export const fetchBookingProofUrl = async (reference) => {
-    const { data } = await api.get(`/client/bookings/${encodeURIComponent(reference)}/payment-proof`, { responseType: "blob" });
-    return URL.createObjectURL(data);
-};
+export const fetchBookingProofUrl = (reference) => fetchProofUrl(`/client/bookings/${encodeURIComponent(reference)}/payment-proof`);
 
 export const cancelClientBooking = async (reference, reason = "") => {
     const { data } = await api.patch(`/client/bookings/${encodeURIComponent(reference)}/cancel`, { reason });

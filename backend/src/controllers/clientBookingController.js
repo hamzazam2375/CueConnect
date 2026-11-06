@@ -1,16 +1,15 @@
 import crypto from "crypto";
-import path from "path";
 import mongoose from "mongoose";
 import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
-import { PAYMENT_PROOF_DIR, discardUpload } from "../middleware/upload.js";
+import { discardUpload } from "../middleware/upload.js";
+import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 
 export const MAX_BOOKING_DAYS = 30;
 const ALLOWED_DURATIONS = [1, 2, 3];
 const BUSY_STATUSES = ["pending", "approved"];
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
-const TRANSACTION_ID = /^[A-Za-z0-9-]{4,40}$/;
 
 // share of the booking total paid upfront with the payment proof
 const ADVANCE_RATE = 0.5;
@@ -48,14 +47,6 @@ const formatBranchName = (branch) => {
     const name = branch.branchName || "";
     return name.toUpperCase().startsWith("GOODSHOT") ? name.toUpperCase() : `GOODSHOT ${name}`.trim();
 };
-
-const serializePaymentAccount = (account) => ({
-    id: String(account._id),
-    method: account.method,
-    provider: account.provider,
-    accountTitle: account.accountTitle,
-    accountNumber: account.accountNumber
-});
 
 const serializeBranch = (branch, tables = []) => ({
     id: String(branch._id),
@@ -97,12 +88,7 @@ const serializeBooking = (booking) => {
         total: booking.totalAmount,
         advanceAmount: booking.advanceAmount,
         remainingAmount: Math.max(booking.totalAmount - booking.advanceAmount, 0),
-        paymentAccount: booking.paymentAccount?.method ? {
-            method: booking.paymentAccount.method,
-            provider: booking.paymentAccount.provider,
-            accountTitle: booking.paymentAccount.accountTitle,
-            accountNumber: booking.paymentAccount.accountNumber
-        } : null,
+        paymentAccount: serializePaymentSnapshot(booking.paymentAccount),
         transactionId: booking.transactionId,
         hasPaymentProof: Boolean(booking.paymentProof),
         paymentSubmittedAt: booking.paymentSubmittedAt,
@@ -305,23 +291,13 @@ export const createClientBooking = async (req, res) => {
             return fail(400, schedule.error);
         }
 
-        const branch = await Branch.findById(table.branchId);
-        const account = branch?.paymentAccounts.id(isObjectId(req.body.paymentAccountId) ? req.body.paymentAccountId : null);
-        if (!account) {
-            return fail(400, "Select one of the club's payment accounts");
-        }
-
-        const transactionId = String(req.body.transactionId || "").trim().toUpperCase();
-        if (!TRANSACTION_ID.test(transactionId)) {
-            return fail(400, "Enter the transaction ID from your payment receipt");
+        const payment = await parsePayment(await Branch.findById(table.branchId), req.body);
+        if (payment.error) {
+            return fail(payment.status, payment.error);
         }
 
         if (!req.file) {
             return fail(400, "Upload a screenshot of your payment as proof");
-        }
-
-        if (await Booking.exists({ transactionId, "paymentAccount.method": account.method })) {
-            return fail(409, "This transaction ID has already been used for another booking");
         }
 
         const overlap = await findOverlap({
@@ -350,13 +326,8 @@ export const createClientBooking = async (req, res) => {
                     hourlyRate: table.pricePerHour,
                     totalAmount,
                     advanceAmount: getAdvanceAmount(totalAmount),
-                    paymentAccount: {
-                        method: account.method,
-                        provider: account.provider,
-                        accountTitle: account.accountTitle,
-                        accountNumber: account.accountNumber
-                    },
-                    transactionId,
+                    paymentAccount: snapshotPaymentAccount(payment.account),
+                    transactionId: payment.transactionId,
                     paymentProof: req.file.filename,
                     paymentSubmittedAt: new Date(),
                     status: "pending"
@@ -388,9 +359,7 @@ export const getClientBookingProof = async (req, res) => {
             return res.status(404).json({ message: "Payment proof not found" });
         }
 
-        res.sendFile(path.basename(booking.paymentProof), { root: PAYMENT_PROOF_DIR }, (error) => {
-            if (error && !res.headersSent) res.status(404).json({ message: "Payment proof not found" });
-        });
+        sendPaymentProof(res, booking.paymentProof);
     } catch (error) {
         console.error("Get booking proof error:", error.message);
         res.status(500).json({ message: "Server error" });

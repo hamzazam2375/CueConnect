@@ -13,6 +13,13 @@ import {
     rescheduleClientBooking,
     changeClientBookingTable
 } from "../controllers/clientBookingController.js";
+import {
+    listMembershipPlans,
+    listClientMemberships,
+    createClientMembership,
+    cancelClientMembership,
+    getClientMembershipProof
+} from "../controllers/clientMembershipController.js";
 
 const router = express.Router();
 
@@ -29,5 +36,11 @@ router.get("/bookings/:reference/payment-proof", getClientBookingProof);
 router.patch("/bookings/:reference/cancel", cancelClientBooking);
 router.patch("/bookings/:reference/reschedule", rescheduleClientBooking);
 router.patch("/bookings/:reference/table", changeClientBookingTable);
+
+router.get("/membership-plans", listMembershipPlans);
+router.get("/memberships", listClientMemberships);
+router.post("/memberships", uploadPaymentProof, createClientMembership);
+router.patch("/memberships/:reference/cancel", cancelClientMembership);
+router.get("/memberships/:reference/payment-proof", getClientMembershipProof);
 
 export default router;

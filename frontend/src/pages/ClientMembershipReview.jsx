@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
-import branches from "../data/branches";
-
-const SELECTION_KEY = "cueconnect_membership_selection";
-const REVIEW_KEY = "cueconnect_membership_review";
+import { ErrorPanel, LoadingPanel } from "../components/LoadState";
+import { getApiError } from "../utils/clientBookings";
+import { fetchMembershipPlans, loadSelection, saveSelection } from "../utils/clientMemberships";
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -24,18 +23,9 @@ function Icon({ name, className = "h-5 w-5" }) {
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-const loadMembership = () => {
-    try {
-        const selection = JSON.parse(sessionStorage.getItem(SELECTION_KEY));
-        const branch = branches.find((item) => item.id === selection?.branchId);
-        const planIndex = Number(selection?.planIndex);
-        const membership = branch?.memberships[planIndex];
-        if (branch && Number.isInteger(planIndex) && membership) return { branch, membership, planIndex };
-    } catch {
-        // Invalid browser data is handled by redirecting to plan selection.
-    }
-    return null;
-};
+function PageShell({ user, initials, children }) {
+    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><Link to="/"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><Link to="/client/profile" className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{initials}</Link></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12">{children}</main></div>;
+}
 
 function Detail({ icon, label, value }) {
     return <div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-neutral-500"><Icon name={icon} className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">{label}</p><p className="mt-1 truncate text-sm font-semibold text-neutral-300">{value}</p></div></div>;
@@ -44,25 +34,37 @@ function Detail({ icon, label, value }) {
 export default function ClientMembershipReview() {
     const { user } = useSelector((state) => state.auth);
     const navigate = useNavigate();
-    const selection = loadMembership();
+    const [branches, setBranches] = useState(null);
+    const [loadError, setLoadError] = useState("");
+    const [reloadCount, setReloadCount] = useState(0);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
 
+    useEffect(() => {
+        let active = true;
+        fetchMembershipPlans()
+            .then((data) => active && setBranches(data))
+            .catch((error) => active && setLoadError(getApiError(error, "Membership details could not be loaded. Please try again.")));
+        return () => { active = false; };
+    }, [reloadCount]);
+
+    if (!branches) {
+        const retryLoad = () => {
+            setLoadError("");
+            setReloadCount((count) => count + 1);
+        };
+        return <PageShell user={user} initials={initials}>{loadError ? <ErrorPanel message={loadError} onRetry={retryLoad} /> : <LoadingPanel label="Loading membership" />}</PageShell>;
+    }
+
+    const selection = loadSelection(branches);
     if (!selection) return <Navigate to="/client/memberships" replace />;
 
-    const { branch, membership, planIndex } = selection;
+    const { branch, membership } = selection;
     const benefits = membership.rules.split(".").map((item) => item.trim()).filter(Boolean);
-    const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
 
     const proceedToPayment = () => {
         if (!acceptedTerms) return;
-        sessionStorage.setItem(REVIEW_KEY, JSON.stringify({
-            branchId: branch.id,
-            planIndex,
-            clientId: user.id,
-            termsAccepted: true,
-            amount: membership.price,
-            reviewedAt: new Date().toISOString()
-        }));
+        saveSelection({ branchId: branch.id, plan: membership.plan, termsAccepted: true });
         navigate("/client/memberships/payment");
     };
 
@@ -78,16 +80,16 @@ export default function ClientMembershipReview() {
                 <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(330px,0.85fr)]">
                     <div className="space-y-6">
                         <section className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85" style={{ animationDelay: "80ms" }}>
-                            <div className="relative border-b border-white/[0.07] p-6 sm:p-7"><div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-red-600/10 blur-3xl" /><div className="relative flex items-start justify-between gap-5"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400">Selected membership</p><h2 className="mt-2 text-3xl font-black">{membership.plan}</h2><p className="mt-2 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Icon name="pin" className="h-3.5 w-3.5 text-red-500" />{membership.plan === "Platinum" ? "Valid at all branches" : branch.name.replace("GOODSHOT ", "")}</p></div><span className="grid h-14 w-14 place-items-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400"><Icon name="crown" className="h-7 w-7" /></span></div></div>
+                            <div className="relative border-b border-white/[0.07] p-6 sm:p-7"><div className="pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-red-600/10 blur-3xl" /><div className="relative flex items-start justify-between gap-5"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400">Selected membership</p><h2 className="mt-2 text-3xl font-black">{membership.plan}</h2><p className="mt-2 inline-flex items-center gap-1.5 text-xs text-neutral-500"><Icon name="pin" className="h-3.5 w-3.5 text-red-500" />{membership.allBranches ? "Valid at all branches" : branch.name.replace("GOODSHOT ", "")}</p></div><span className="grid h-14 w-14 place-items-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-400"><Icon name="crown" className="h-7 w-7" /></span></div></div>
                             <div className="p-6 sm:p-7"><p className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">Included benefits</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{benefits.map((benefit) => <div key={benefit} className="flex items-start gap-2.5 text-xs leading-relaxed text-neutral-400"><span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-red-600 text-white"><Icon name="check" className="h-2.5 w-2.5" /></span>{benefit}</div>)}</div></div>
                         </section>
 
                         <section className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6 sm:p-7" style={{ animationDelay: "140ms" }}><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500">Account details</p><h2 className="mt-1 text-xl font-bold">Membership holder</h2></div><Link to="/client/profile" className="text-xs font-bold text-neutral-500 transition-colors hover:text-red-400">Edit profile</Link></div><div className="mt-6 grid gap-5 sm:grid-cols-2"><Detail icon="user" label="Full name" value={`${user.firstName} ${user.lastName}`} /><Detail icon="mail" label="Email" value={user.email} /><Detail icon="phone" label="Phone" value={user.phone || "Not added"} /><Detail icon="shield" label="Account" value="Verified client" /></div></section>
 
-                        <label className={`dashboard-rise flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${acceptedTerms ? "border-red-500/25 bg-red-500/[0.07]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]"}`} style={{ animationDelay: "200ms" }}><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" /><span className="text-xs leading-relaxed text-neutral-500">I confirm that the details above are correct and agree to the monthly membership terms. Membership benefits begin only after successful payment and activation.</span></label>
+                        <label className={`dashboard-rise flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${acceptedTerms ? "border-red-500/25 bg-red-500/[0.07]" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04]"}`} style={{ animationDelay: "200ms" }}><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" /><span className="text-xs leading-relaxed text-neutral-500">I confirm that the details above are correct and agree to the monthly membership terms. Membership benefits begin only after the club verifies my payment and activates the membership.</span></label>
                     </div>
 
-                    <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.09] bg-neutral-950/95 p-6 sm:p-7 lg:sticky lg:top-8" style={{ animationDelay: "120ms" }}><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-neutral-400"><Icon name="card" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600">Billing summary</p><h2 className="mt-1 text-lg font-bold">Amount due</h2></div></div><div className="mt-7 space-y-4 text-sm"><div className="flex justify-between gap-4 text-neutral-500"><span>{membership.plan} · {membership.duration}</span><span className="font-semibold text-neutral-300">PKR {membership.price.toLocaleString()}</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Processing fee</span><span className="font-semibold text-emerald-400">PKR 0</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Membership discount</span><span className="font-semibold text-neutral-300">{membership.discount}% on play</span></div></div><div className="my-6 border-t border-dashed border-white/[0.1]" /><div className="flex items-end justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Due today</p><p className="mt-1 text-xs text-neutral-600">One month membership</p></div><p className="text-2xl font-black text-red-400">PKR {membership.price.toLocaleString()}</p></div><button type="button" onClick={proceedToPayment} disabled={!acceptedTerms} className="group mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">Proceed to payment<Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><div className="mt-4 flex items-start gap-2 text-[10px] leading-relaxed text-neutral-700"><Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />You will not be charged during this review step.</div></aside>
+                    <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.09] bg-neutral-950/95 p-6 sm:p-7 lg:sticky lg:top-8" style={{ animationDelay: "120ms" }}><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-neutral-400"><Icon name="card" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600">Billing summary</p><h2 className="mt-1 text-lg font-bold">Amount due</h2></div></div><div className="mt-7 space-y-4 text-sm"><div className="flex justify-between gap-4 text-neutral-500"><span>{membership.plan} · {membership.duration}</span><span className="font-semibold text-neutral-300">PKR {membership.price.toLocaleString()}</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Processing fee</span><span className="font-semibold text-emerald-400">PKR 0</span></div><div className="flex justify-between gap-4 text-neutral-500"><span>Membership discount</span><span className="font-semibold text-neutral-300">{membership.discount}% on play</span></div></div><div className="my-6 border-t border-dashed border-white/[0.1]" /><div className="flex items-end justify-between gap-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Due today</p><p className="mt-1 text-xs text-neutral-600">{membership.duration} membership</p></div><p className="text-2xl font-black text-red-400">PKR {membership.price.toLocaleString()}</p></div><button type="button" onClick={proceedToPayment} disabled={!acceptedTerms} className="group mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">Proceed to payment<Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><div className="mt-4 flex items-start gap-2 text-[10px] leading-relaxed text-neutral-700"><Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />You will not be charged during this review step.</div></aside>
                 </div>
             </main>
         </div>

@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { cancelClientBooking, fetchBookingProofUrl, fetchClientBookings, getApiError, paymentMethodLabels } from "../utils/clientBookings";
+import { cancelClientBooking, fetchBookingProofUrl, fetchClientBookings, getApiError } from "../utils/clientBookings";
+import { paymentMethodLabels } from "../utils/payments";
 
 const statusStyles = {
     pending: "border-amber-500/20 bg-amber-500/10 text-amber-400",

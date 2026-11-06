@@ -1,53 +1,47 @@
-const MEMBERSHIPS_KEY = "cueconnect_client_memberships";
+import api from "../services/api";
+import { fetchProofUrl, postWithProof } from "./payments";
 
-export const getClientMemberships = () => {
+// plan picked on the plans page and carried through review and payment
+export const SELECTION_KEY = "cueconnect_membership_selection";
+
+// resolves to branches, each with { id, name, code, plans, paymentAccounts }
+export const fetchMembershipPlans = async () => {
+    const { data } = await api.get("/client/membership-plans");
+    return data.branches;
+};
+
+export const fetchClientMemberships = async () => {
+    const { data } = await api.get("/client/memberships");
+    return data.memberships;
+};
+
+export const createClientMembership = async ({ branchId, plan, paymentAccountId, transactionId, paymentProof }) => {
+    const data = await postWithProof("/client/memberships", { branchId, plan, paymentAccountId, transactionId }, paymentProof);
+    return data.membership;
+};
+
+export const cancelClientMembership = async (reference) => {
+    const { data } = await api.patch(`/client/memberships/${encodeURIComponent(reference)}/cancel`);
+    return data.membership;
+};
+
+export const fetchMembershipProofUrl = (reference) => fetchProofUrl(`/client/memberships/${encodeURIComponent(reference)}/payment-proof`);
+
+// the membership that stops a new request, if any
+export const findCurrentMembership = (memberships) => memberships.find((membership) => ["pending", "active"].includes(membership.status));
+
+// reads the saved plan choice and matches it against the live plan list
+export const loadSelection = (branches) => {
     try {
-        const memberships = JSON.parse(localStorage.getItem(MEMBERSHIPS_KEY) || "[]");
-        return Array.isArray(memberships) ? memberships : [];
+        const selection = JSON.parse(sessionStorage.getItem(SELECTION_KEY));
+        const branch = branches.find((item) => item.id === selection?.branchId);
+        const membership = branch?.plans.find((item) => item.plan === selection?.plan);
+        if (branch && membership) return { branch, membership, termsAccepted: Boolean(selection.termsAccepted) };
     } catch {
-        return [];
+        // Invalid browser data is treated as no selection.
     }
+    return null;
 };
 
-export const getMembershipsForUser = (user) => getClientMemberships().filter(
-    (membership) => membership.clientId === user.id || membership.clientEmail === user.email
-);
-
-export const savePendingMembership = (membership) => {
-    if (!membership?.reference || !membership?.clientId || !membership?.paymentMethod) {
-        throw new Error("Membership payment details are incomplete.");
-    }
-
-    const memberships = getClientMemberships();
-    if (memberships.some((item) => item.reference === membership.reference)) {
-        throw new Error("This membership request already exists.");
-    }
-
-    const pendingMembership = {
-        ...membership,
-        status: "payment_pending",
-        createdAt: new Date().toISOString()
-    };
-    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify([pendingMembership, ...memberships]));
-    return pendingMembership;
-};
-
-export const cancelPendingMembership = (reference) => {
-    const memberships = getClientMemberships();
-    const membership = memberships.find((item) => item.reference === reference);
-
-    if (!membership || membership.status !== "payment_pending") {
-        throw new Error("Only payment-pending membership requests can be cancelled.");
-    }
-
-    const cancelledMembership = {
-        ...membership,
-        status: "cancelled",
-        cancelledAt: new Date().toISOString()
-    };
-    const updatedMemberships = memberships.map((item) => (
-        item.reference === reference ? cancelledMembership : item
-    ));
-    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(updatedMemberships));
-    return cancelledMembership;
-};
+export const saveSelection = (selection) => sessionStorage.setItem(SELECTION_KEY, JSON.stringify(selection));
+export const clearSelection = () => sessionStorage.removeItem(SELECTION_KEY);
