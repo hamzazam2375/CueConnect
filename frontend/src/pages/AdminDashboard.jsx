@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import AdminLayout, { Icon } from "../components/AdminLayout";
+import StartGameModal from "../components/StartGameModal";
 import api from "../services/api";
 
 function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
@@ -141,6 +142,8 @@ export default function AdminDashboard() {
     const { user, error } = useSelector((state) => state.auth);
     const [stats, setStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(true);
+    const [startOpen, setStartOpen] = useState(false);
+    const [startSuccess, setStartSuccess] = useState(null);
     const navigate = useNavigate();
 
     const now = new Date();
@@ -157,7 +160,17 @@ export default function AdminDashboard() {
 
     return (
         <AdminLayout title="Admin Dashboard">
+            <StartGameModal
+                open={startOpen}
+                onClose={() => setStartOpen(false)}
+                onStarted={() => {
+                    setStartSuccess("Game started");
+                    setTimeout(() => setStartSuccess(null), 3000);
+                    api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
+                }}
+            />
             {error && <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">{error}</div>}
+            {startSuccess && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">{startSuccess}</div>}
 
             <section className="dashboard-rise">
                 <div className="inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-500/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">
@@ -198,7 +211,7 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                                <QuickActionButton icon="gamepad" label="Start Game" onClick={() => navigate("/admin/games")} color="violet" />
+                                <QuickActionButton icon="gamepad" label="Start Game" onClick={() => setStartOpen(true)} color="violet" />
                                 <QuickActionButton icon="calendar" label="View Bookings" onClick={() => navigate("/admin/bookings")} color="blue" />
                                 <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => navigate("/admin/bookings")} color="amber" />
                             </div>

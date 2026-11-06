@@ -8,13 +8,18 @@ import Expense from "../models/expense.js";
 import Event from "../models/event.js";
 import Waitlist from "../models/waitlist.js";
 import {
-    listCustomers,
     listActiveGames,
     listGameHistory,
     getGame,
     startGame,
     stopGame
 } from "../controllers/adminGameController.js";
+import {
+    listCustomers,
+    getCustomer,
+    createCustomer,
+    updateCustomer
+} from "../controllers/adminCustomerController.js";
 import {
     listBills,
     getBill,
@@ -28,6 +33,9 @@ import Bill from "../models/bill.js";
 const router = express.Router();
 
 router.get("/customers", protect, authorize("admin"), listCustomers);
+router.post("/customers", protect, authorize("admin"), createCustomer);
+router.get("/customers/:id", protect, authorize("admin"), getCustomer);
+router.patch("/customers/:id", protect, authorize("admin"), updateCustomer);
 router.get("/games/active", protect, authorize("admin"), listActiveGames);
 router.get("/games/history", protect, authorize("admin"), listGameHistory);
 router.post("/games", protect, authorize("admin"), startGame);

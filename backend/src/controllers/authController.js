@@ -5,6 +5,7 @@ import User from "../models/user.js";
 import Branch from "../models/branch.js";
 import { sendOtpEmail } from "../services/emailService.js";
 import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOptions.js";
+import { allocateCustomerCode } from "../utils/customerCode.js";
 
 // track failed secret key attempts per IP
 const attemptTracker = new Map();
@@ -335,7 +336,9 @@ export const registerClient = async (req, res) => {
             lastName,
             email,
             password: hashedPassword,
-            role: "client"
+            role: "client",
+            customerCode: await allocateCustomerCode(),
+            isActive: true
         });
 
         res.status(201).json({
@@ -367,6 +370,9 @@ export const clientLogin = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user || user.role !== "client") {
             return res.status(401).json({ message: "Invalid email or password" });
+        }
+        if (user.isActive === false) {
+            return res.status(403).json({ message: "This account is inactive. Contact the club to reactivate it." });
         }
 
         // verify password
