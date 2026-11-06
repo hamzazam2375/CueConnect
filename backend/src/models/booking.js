@@ -67,14 +67,34 @@ const bookingSchema = new mongoose.Schema(
             default: "pending"
         },
 
+        // amount the client paid upfront; the rest is paid at the club
         advanceAmount: {
             type: Number,
             default: 0
         },
 
-        // path to uploaded payment proof image
+        // branch payment account the advance was sent to
+        paymentAccount: {
+            method: { type: String, default: null },
+            provider: { type: String, default: null },
+            accountTitle: { type: String, default: null },
+            accountNumber: { type: String, default: null }
+        },
+
+        // transaction ID from the client's receipt, checked by admin against the account
+        transactionId: {
+            type: String,
+            default: null
+        },
+
+        // file name of the uploaded payment proof inside uploads/payment-proofs
         paymentProof: {
             type: String,
+            default: null
+        },
+
+        paymentSubmittedAt: {
+            type: Date,
             default: null
         },
 

@@ -14,7 +14,34 @@ const branchSchema = new mongoose.Schema(
             required: true,
             unique: true,
             uppercase: true
-        }
+        },
+
+        // accounts clients send booking advances to
+        paymentAccounts: [
+            {
+                method: {
+                    type: String,
+                    enum: ["jazzcash", "easypaisa", "bank"],
+                    required: true
+                },
+                // bank name for bank transfers
+                provider: {
+                    type: String,
+                    trim: true,
+                    default: null
+                },
+                accountTitle: {
+                    type: String,
+                    required: true,
+                    trim: true
+                },
+                accountNumber: {
+                    type: String,
+                    required: true,
+                    trim: true
+                }
+            }
+        ]
     },
     {
         timestamps: true

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { createClientBooking, fetchBranchTables, formatOpeningHours, getApiError } from "../utils/clientBookings";
+import { MAX_PROOF_SIZE, PROOF_TYPES, createClientBooking, fetchBranchTables, formatOpeningHours, getAdvanceAmount, getApiError, paymentMethodLabels } from "../utils/clientBookings";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -25,7 +25,10 @@ function Icon({ name, className = "h-5 w-5" }) {
         edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" /></>,
         shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></>,
         arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>
+        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>,
+        wallet: <><path d="M4 6h14a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h13" /><path d="M16 11h6v5h-6a2.5 2.5 0 0 1 0-5Z" /></>,
+        upload: <><path d="M12 16V4m-5 5 5-5 5 5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></>,
+        copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>
     };
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -40,6 +43,9 @@ const parseDate = (value) => {
     const [year, month, day] = value.split("-").map(Number);
     return new Date(year, month - 1, day, 0, 0, 0, 0);
 };
+
+// keep in sync with TRANSACTION_ID in backend/src/controllers/clientBookingController.js
+const TRANSACTION_ID = /^[A-Za-z0-9-]{4,40}$/;
 
 const clearDraft = () => Object.values(KEYS).forEach((key) => sessionStorage.removeItem(key));
 
@@ -92,6 +98,9 @@ export default function ClientBookingReview() {
     const [loadError, setLoadError] = useState("");
     const [branchMissing, setBranchMissing] = useState(false);
     const [reloadCount, setReloadCount] = useState(0);
+    const [accountId, setAccountId] = useState(null);
+    const [transactionId, setTransactionId] = useState("");
+    const [proofFile, setProofFile] = useState(null);
 
     useEffect(() => {
         if (!branchId) return undefined;
@@ -127,15 +136,20 @@ export default function ClientBookingReview() {
 
     const endTime = startTime + duration * 60;
     const total = table.pricePerHour * duration;
+    const advance = getAdvanceAmount(total);
+    const accounts = branch.paymentAccounts;
+    const account = accounts.find((item) => item.id === accountId);
+    const transactionValid = TRANSACTION_ID.test(transactionId.trim());
+    const canSubmit = accepted && account && transactionValid && proofFile && !isSubmitting;
     const displayDate = bookingDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
     const confirmBooking = async () => {
-        if (!accepted || isSubmitting) return;
+        if (!canSubmit) return;
         setIsSubmitting(true);
         setSaveError("");
 
         try {
-            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration });
+            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration, paymentAccountId: account.id, transactionId: transactionId.trim(), paymentProof: proofFile });
             clearDraft();
             setConfirmedBooking(booking);
         } catch (error) {
@@ -147,7 +161,7 @@ export default function ClientBookingReview() {
     return (
         <PageShell user={user}>
             <Link to="/client/book/schedule" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Edit schedule</Link>
-            <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · Final step</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your booking.</h1><p className="mt-3 max-w-2xl text-sm text-neutral-500 sm:text-base">Check every detail before confirming your table request.</p></section>
+            <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · Final step</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your booking.</h1><p className="mt-3 max-w-2xl text-sm text-neutral-500 sm:text-base">Check every detail, pay the advance, and send your table request.</p></section>
             <Progress />
 
             <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -159,26 +173,93 @@ export default function ClientBookingReview() {
                         <DetailCard icon="clock" label="Schedule" title={`${formatTime(startTime)} – ${formatTime(endTime)}`} detail={`${duration} ${duration === 1 ? "hour" : "hours"} of play`} editTo="/client/book/schedule" />
                     </div>
 
+                    <PaymentSection advance={advance} accounts={accounts} accountId={accountId} onAccountChange={setAccountId} transactionId={transactionId} onTransactionIdChange={setTransactionId} transactionValid={transactionValid} proofFile={proofFile} onProofChange={setProofFile} />
+
                     <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
-                        <div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400"><Icon name="shield" className="h-4 w-4" /></span><div><h2 className="text-sm font-bold">Booking rules</h2><ul className="mt-3 space-y-2 text-xs leading-relaxed text-neutral-500"><li>· Please arrive at least 10 minutes before your selected time.</li><li>· Your request remains pending until the club confirms availability.</li><li>· Advance payment requirements will be communicated after approval.</li><li>· Late arrival may reduce your reserved playing time.</li></ul></div></div>
+                        <div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400"><Icon name="shield" className="h-4 w-4" /></span><div><h2 className="text-sm font-bold">Booking rules</h2><ul className="mt-3 space-y-2 text-xs leading-relaxed text-neutral-500"><li>· Please arrive at least 10 minutes before your selected time.</li><li>· A 50% advance is required to send the request; the rest is paid at the club.</li><li>· The club approves your booking once your payment is verified. Requests with unverifiable payments are rejected.</li><li>· Late arrival may reduce your reserved playing time.</li></ul></div></div>
                     </article>
                 </section>
 
                 <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6 lg:sticky lg:top-6" style={{ animationDelay: "200ms" }}>
                     <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name="receipt" /></span><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Price summary</p><h2 className="mt-0.5 text-lg font-bold">Booking total</h2></div></div>
                     <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div><div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
-                    <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Estimated total</p><p className="mt-1 text-xs text-neutral-600">Payable after approval</p></div><p className="text-2xl font-black text-red-400">PKR {total.toLocaleString()}</p></div>
+                    <div className="space-y-3 border-b border-white/[0.07] py-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Booking total</span><span className="font-semibold text-neutral-300">PKR {total.toLocaleString()}</span></div><div className="flex justify-between text-neutral-500"><span>Pay at club</span><span>PKR {(total - advance).toLocaleString()}</span></div></div>
+                    <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Advance now</p><p className="mt-1 text-xs text-neutral-600">50% of the total</p></div><p className="text-2xl font-black text-red-400">PKR {advance.toLocaleString()}</p></div>
 
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3.5">
                         <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" />
                         <span className="text-[11px] leading-relaxed text-neutral-500">I have reviewed the booking details and agree to the club rules.</span>
                     </label>
                     {saveError && <p className="mt-3 text-xs text-red-400" role="alert">{saveError}</p>}
-                    <button type="button" onClick={confirmBooking} disabled={!accepted || isSubmitting} className="group mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{isSubmitting ? "Sending request..." : "Confirm booking"} <Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button>
-                    <p className="mt-3 text-center text-[10px] leading-relaxed text-neutral-700">No payment will be charged at this stage.</p>
+                    <button type="button" onClick={confirmBooking} disabled={!canSubmit} className="group mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3.5 text-sm font-bold shadow-lg shadow-red-950/40 transition-all hover:-translate-y-0.5 hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600 disabled:shadow-none">{isSubmitting ? "Sending request..." : "Confirm booking & payment"} <Icon name="arrow" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button>
+                    <p className="mt-3 text-center text-[10px] leading-relaxed text-neutral-700">{account && transactionValid && proofFile ? "The club will verify your payment and approve the booking." : "Select an account, enter the transaction ID, and upload proof to continue."}</p>
                 </aside>
             </div>
         </PageShell>
+    );
+}
+
+function PaymentSection({ advance, accounts, accountId, onAccountChange, transactionId, onTransactionIdChange, transactionValid, proofFile, onProofChange }) {
+    const [proofError, setProofError] = useState("");
+    const [copiedId, setCopiedId] = useState(null);
+    const proofUrl = useMemo(() => proofFile && URL.createObjectURL(proofFile), [proofFile]);
+
+    useEffect(() => () => proofUrl && URL.revokeObjectURL(proofUrl), [proofUrl]);
+
+    const chooseProof = (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        if (!PROOF_TYPES.includes(file.type)) return setProofError("Upload a JPG, PNG, or WEBP screenshot.");
+        if (file.size > MAX_PROOF_SIZE) return setProofError("The screenshot must be 5 MB or smaller.");
+        setProofError("");
+        onProofChange(file);
+    };
+
+    const removeProof = () => onProofChange(null);
+
+    const copyNumber = async (account) => {
+        try {
+            await navigator.clipboard.writeText(account.accountNumber);
+            setCopiedId(account.id);
+            setTimeout(() => setCopiedId((current) => current === account.id ? null : current), 1500);
+        } catch {
+            // Copying is a convenience; the number stays visible.
+        }
+    };
+
+    if (!accounts.length) {
+        return <article className="rounded-3xl border border-amber-500/15 bg-amber-500/[0.04] p-5 sm:p-6" role="alert"><div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-400"><Icon name="wallet" className="h-4 w-4" /></span><div><h2 className="text-sm font-bold">Online payment unavailable</h2><p className="mt-2 text-xs leading-relaxed text-neutral-500">This club has not added a payment account yet, so the advance cannot be paid online. Please contact the club or choose another branch.</p></div></div></article>;
+    }
+
+    return (
+        <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
+            <div className="flex items-start gap-3"><span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name="wallet" className="h-4 w-4" /></span><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Advance payment</p><h2 className="mt-1 text-base font-bold">Send PKR {advance.toLocaleString()} to the club</h2><p className="mt-1 text-xs leading-relaxed text-neutral-500">Pay from your wallet or bank app, then add the receipt details below.</p></div></div>
+
+            <p className="mt-6 text-[10px] font-bold uppercase tracking-wider text-neutral-600">1 · Account you paid to</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {accounts.map((item) => {
+                    const selected = item.id === accountId;
+                    return (
+                        <div key={item.id} className={`relative rounded-2xl border p-4 transition-all ${selected ? "border-red-500/60 bg-red-500/[0.09]" : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"}`}>
+                            <button type="button" onClick={() => onAccountChange(selected ? null : item.id)} aria-pressed={selected} className="block w-full pr-10 text-left"><span className="flex items-center gap-2"><span className="text-sm font-bold text-neutral-100">{paymentMethodLabels[item.method] || item.method}</span>{item.provider && <span className="truncate text-[10px] text-neutral-600">{item.provider}</span>}</span><span className="mt-2 block text-base font-black tracking-wider text-neutral-200">{item.accountNumber}</span><span className="mt-1 block truncate text-[11px] text-neutral-500">{item.accountTitle}</span></button>
+                            <button type="button" onClick={() => copyNumber(item)} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg border border-white/[0.07] text-neutral-500 transition-colors hover:bg-white/[0.05] hover:text-white" aria-label={`Copy ${item.accountNumber}`}>{copiedId === item.id ? <Icon name="check" className="h-3.5 w-3.5 text-emerald-400" /> : <Icon name="copy" className="h-3.5 w-3.5" />}</button>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <label className="mt-6 block"><span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600">2 · Transaction ID</span><input value={transactionId} onChange={(event) => onTransactionIdChange(event.target.value)} maxLength={40} placeholder="e.g. 0123456789" className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/50 px-4 py-3 text-sm text-neutral-200 placeholder:text-neutral-700 outline-none transition-colors focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10" /></label>
+            {transactionId.trim() && !transactionValid && <p className="mt-2 text-[11px] text-red-400">Use 4–40 letters, numbers, or dashes as shown on your receipt.</p>}
+
+            <p className="mt-6 text-[10px] font-bold uppercase tracking-wider text-neutral-600">3 · Payment screenshot</p>
+            {proofFile && proofUrl ? (
+                <div className="mt-3 flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3"><img src={proofUrl} alt="Payment proof preview" className="h-20 w-20 shrink-0 rounded-xl object-cover" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-neutral-300">{proofFile.name}</p><p className="mt-1 text-[10px] text-neutral-600">{(proofFile.size / 1024 / 1024).toFixed(2)} MB</p></div><button type="button" onClick={removeProof} className="rounded-lg border border-white/[0.08] px-3 py-2 text-[11px] font-bold text-neutral-400 transition-colors hover:bg-white/[0.05] hover:text-white">Remove</button></div>
+            ) : (
+                <label className="mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.015] px-4 py-8 text-center transition-colors hover:border-red-500/30 hover:bg-red-500/[0.03]"><Icon name="upload" className="h-6 w-6 text-neutral-500" /><span className="text-xs font-bold text-neutral-300">Upload screenshot</span><span className="text-[10px] text-neutral-600">JPG, PNG, or WEBP · up to 5 MB</span><input type="file" accept={PROOF_TYPES.join(",")} onChange={chooseProof} className="sr-only" /></label>
+            )}
+            {proofError && <p className="mt-2 text-[11px] text-red-400" role="alert">{proofError}</p>}
+        </article>
     );
 }
 
@@ -198,7 +279,7 @@ function BookingSuccess({ booking, user }) {
         <PageShell user={user}>
             <section className="dashboard-rise mx-auto max-w-2xl py-8 text-center sm:py-16">
                 <div className="relative mx-auto grid h-24 w-24 place-items-center"><span className="absolute inset-0 animate-ping rounded-full bg-emerald-500/10" /><span className="relative grid h-20 w-20 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"><Icon name="check" className="h-9 w-9" /></span></div>
-                <p className="mt-7 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-400">Request received</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Booking request sent.</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-neutral-500">Your table is reserved while the club reviews your request. You can follow its status in My bookings.</p>
+                <p className="mt-7 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-400">Request received</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Booking request sent.</h1><p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-neutral-500">Your table is held while the club verifies your PKR {booking.advanceAmount.toLocaleString()} advance. You can follow its status in My bookings.</p>
                 <div className="mx-auto mt-8 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-6 text-left"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-neutral-600">Booking reference</p><p className="mt-2 break-all text-2xl font-black tracking-wider text-red-400">{booking.reference}</p><div className="mt-5 grid grid-cols-2 gap-4 border-t border-white/[0.07] pt-5 text-sm"><div><p className="text-[9px] uppercase text-neutral-700">Club</p><p className="mt-1 font-bold text-neutral-300">{booking.branchName.replace("GOODSHOT ", "")}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Table</p><p className="mt-1 font-bold text-neutral-300">{booking.tableName}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Date</p><p className="mt-1 font-bold text-neutral-300">{parseDate(booking.date).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}</p></div><div><p className="text-[9px] uppercase text-neutral-700">Time</p><p className="mt-1 font-bold text-neutral-300">{formatTime(booking.startTime)} – {formatTime(booking.endTime)}</p></div></div></div>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><Link to="/client/dashboard" className="rounded-xl bg-red-600 px-6 py-3 text-sm font-bold transition-colors hover:bg-red-500">Go to dashboard</Link><Link to="/client/book" onClick={bookAnother} className="rounded-xl border border-white/[0.09] bg-white/[0.03] px-6 py-3 text-sm font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">Book another table</Link></div>
             </section>
