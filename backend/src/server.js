@@ -14,10 +14,21 @@ import clientRoutes from "./routes/clientRoutes.js";
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+app.set("trust proxy", 1);
 
 // middleware
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
 }));
 
@@ -43,7 +54,7 @@ const startServer = async () => {
     try {
         await connectDB();
 
-        app.listen(PORT, () => {
+        app.listen(PORT, "0.0.0.0", () => {
             console.log(`Server running on port ${PORT}`);
         });
     } catch (error) {
