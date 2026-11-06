@@ -56,6 +56,12 @@ const bookingSchema = new mongoose.Schema(
             required: true
         },
 
+        // percent off from the client's membership, applied to hourlyRate * duration
+        membershipDiscount: {
+            type: Number,
+            default: 0
+        },
+
         totalAmount: {
             type: Number,
             required: true

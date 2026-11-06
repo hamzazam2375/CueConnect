@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
+import Membership from "../models/membership.js";
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 
@@ -14,6 +15,21 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 // share of the booking total paid upfront with the payment proof
 const ADVANCE_RATE = 0.5;
 const getAdvanceAmount = (total) => Math.ceil(total * ADVANCE_RATE);
+
+const priceBooking = (hourlyRate, duration, discount) => Math.round(hourlyRate * duration * (100 - discount) / 100);
+
+// the client's best running membership that covers this branch
+const findMemberDiscount = (userId, branchId) => Membership.findOne({
+    user: userId,
+    status: "active",
+    expiryDate: { $gt: new Date() },
+    $or: [{ branchId }, { allBranches: true }]
+}).sort({ discount: -1 });
+
+// discount applies only when the membership is still running when the slot starts
+const discountForSlot = (membership, date, startTime) => (
+    membership && membership.expiryDate > new Date(date.getTime() + startTime * 60 * 1000) ? membership.discount : 0
+);
 
 // club hours are not stored on Branch yet; keep in sync with the booking UI
 const DEFAULT_OPENING_TIME = 12 * 60;
@@ -85,6 +101,9 @@ const serializeBooking = (booking) => {
         endTime: booking.endTime,
         duration: booking.duration,
         hourlyRate: booking.hourlyRate,
+        subtotal: booking.hourlyRate * booking.duration,
+        membershipDiscount: booking.membershipDiscount,
+        discountAmount: booking.hourlyRate * booking.duration - booking.totalAmount,
         total: booking.totalAmount,
         advanceAmount: booking.advanceAmount,
         remainingAmount: Math.max(booking.totalAmount - booking.advanceAmount, 0),
@@ -201,10 +220,19 @@ export const listBranchTables = async (req, res) => {
             return res.status(404).json({ message: "Branch not found" });
         }
 
-        const tables = await Table.find({ branchId: branch._id }).sort({ name: 1 });
+        const [tables, membership] = await Promise.all([
+            Table.find({ branchId: branch._id }).sort({ name: 1 }),
+            findMemberDiscount(req.user._id, branch._id)
+        ]);
         res.status(200).json({
             branch: serializeBranch(branch, tables),
-            tables: tables.map(serializeTable)
+            tables: tables.map(serializeTable),
+            // bookings that start before expiryDate get `discount` percent off
+            membership: membership ? {
+                plan: membership.plan.charAt(0).toUpperCase() + membership.plan.slice(1),
+                discount: membership.discount,
+                expiryDate: membership.expiryDate
+            } : null
         });
     } catch (error) {
         console.error("List branch tables error:", error.message);
@@ -310,7 +338,8 @@ export const createClientBooking = async (req, res) => {
             return fail(409, "This table is already booked for the selected time");
         }
 
-        const totalAmount = table.pricePerHour * schedule.duration;
+        const membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), schedule.date, schedule.startTime);
+        const totalAmount = priceBooking(table.pricePerHour, schedule.duration, membershipDiscount);
         let booking;
         for (let attempt = 0; attempt < 5; attempt += 1) {
             try {
@@ -324,6 +353,7 @@ export const createClientBooking = async (req, res) => {
                     endTime: schedule.endTime,
                     duration: schedule.duration,
                     hourlyRate: table.pricePerHour,
+                    membershipDiscount,
                     totalAmount,
                     advanceAmount: getAdvanceAmount(totalAmount),
                     paymentAccount: snapshotPaymentAccount(payment.account),
@@ -420,7 +450,8 @@ export const rescheduleClientBooking = async (req, res) => {
         booking.startTime = schedule.startTime;
         booking.endTime = schedule.endTime;
         booking.duration = schedule.duration;
-        booking.totalAmount = booking.hourlyRate * schedule.duration;
+        booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, booking.branchId._id), schedule.date, schedule.startTime);
+        booking.totalAmount = priceBooking(booking.hourlyRate, schedule.duration, booking.membershipDiscount);
         await booking.save();
 
         res.status(200).json({ booking: serializeBooking(booking) });
@@ -463,7 +494,8 @@ export const changeClientBookingTable = async (req, res) => {
 
         booking.table = table._id;
         booking.hourlyRate = table.pricePerHour;
-        booking.totalAmount = table.pricePerHour * booking.duration;
+        booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), booking.date, booking.startTime);
+        booking.totalAmount = priceBooking(table.pricePerHour, booking.duration, booking.membershipDiscount);
         await booking.save();
 
         const updated = await populateBooking(Booking.findById(booking._id));

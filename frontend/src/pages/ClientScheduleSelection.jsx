@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, getApiError, getSlotTimes, hasSlotStarted, isTableFree } from "../utils/clientBookings";
+import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, getApiError, getBookingPrice, getSlotTimes, hasSlotStarted, isTableFree } from "../utils/clientBookings";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -122,6 +122,7 @@ export default function ClientScheduleSelection() {
     const availabilityReady = Boolean(selectedDate) && availability.date === selectedDate && !availability.error;
     const selectedDateObject = selectedDate ? fromDateKey(selectedDate) : null;
     const slots = getSlotTimes(branch);
+    const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: selectedDate, startTime: selectedTime ?? Number.NaN });
     const slotAvailable = (start, length = duration) => {
         if (!availabilityReady || start + length * 60 > branch.closingTime || hasSlotStarted(selectedDate, start)) return false;
         return isTableFree(availability.busy, table.id, start, start + length * 60);
@@ -219,7 +220,7 @@ export default function ClientScheduleSelection() {
 
                 <section className="dashboard-rise mt-5 rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6" style={{ animationDelay: "300ms" }}>
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Date" value={selectedDateObject ? selectedDateObject.toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"} /><Summary label="Time" value={validTime ? formatTime(selectedTime) : "—"} /><Summary label="Ends at" value={validTime ? formatTime(selectedTime + duration * 60) : "—"} /><Summary label="Estimated total" value={`PKR ${(table.pricePerHour * duration).toLocaleString()}`} accent /></div>
+                        <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4"><Summary label="Date" value={selectedDateObject ? selectedDateObject.toLocaleDateString("en", { month: "short", day: "numeric" }) : "—"} /><Summary label="Time" value={validTime ? formatTime(selectedTime) : "—"} /><Summary label="Ends at" value={validTime ? formatTime(selectedTime + duration * 60) : "—"} /><Summary label={price.discount ? `Total · ${price.discount}% member off` : "Estimated total"} value={`PKR ${price.total.toLocaleString()}`} accent /></div>
                         <button type="button" onClick={continueBooking} disabled={!selectedDate || !validTime} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600">Continue <Icon name="next" className="h-4 w-4 group-hover:translate-x-1" /></button>
                     </div>
                 </section>
