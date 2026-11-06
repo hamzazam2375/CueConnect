@@ -97,3 +97,18 @@ export const formatOpeningHours = (branch) => {
     };
     return `${format(branch.openingTime)} – ${format(branch.closingTime)}`;
 };
+
+export const fetchClientWaitlist = async () => {
+    const { data } = await api.get("/client/waitlist");
+    return data.waitlist;
+};
+
+export const joinWaitlist = async ({ tableId, date, startTime, duration }) => {
+    const { data } = await api.post("/client/waitlist", { tableId, date, startTime, duration });
+    return data.entry;
+};
+
+export const leaveWaitlist = async (id) => {
+    const { data } = await api.patch(`/client/waitlist/${encodeURIComponent(id)}/cancel`);
+    return data.entry;
+};

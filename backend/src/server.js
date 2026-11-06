@@ -10,6 +10,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import clientRoutes from "./routes/clientRoutes.js";
+import { initRealtime } from "./services/realtime.js";
 
 const app = express();
 
@@ -54,9 +55,10 @@ const startServer = async () => {
     try {
         await connectDB();
 
-        app.listen(PORT, "0.0.0.0", () => {
+        const server = app.listen(PORT, "0.0.0.0", () => {
             console.log(`Server running on port ${PORT}`);
         });
+        initRealtime(server, allowedOrigins);
     } catch (error) {
         console.error("Server startup failed:", error);
         process.exit(1);

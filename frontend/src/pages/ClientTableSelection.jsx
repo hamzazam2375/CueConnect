@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import { fetchBranchTables, getApiError } from "../utils/clientBookings";
 
@@ -165,7 +166,7 @@ export default function ClientTableSelection() {
 
             <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
                 <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7">
-                    <div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
+                    <div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
                     <div className="flex items-center gap-3">
                         <div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div>
                         <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div>

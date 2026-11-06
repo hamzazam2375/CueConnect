@@ -4,12 +4,16 @@ import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
 import Membership from "../models/membership.js";
+import Waitlist from "../models/waitlist.js";
+import { notifyUser } from "../services/notifications.js";
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 
 export const MAX_BOOKING_DAYS = 30;
 const ALLOWED_DURATIONS = [1, 2, 3];
 const BUSY_STATUSES = ["pending", "approved"];
+const ACTIVE_WAITLIST_STATUSES = ["waiting", "notified"];
+const MAX_WAITLIST_ENTRIES = 5;
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 // share of the booking total paid upfront with the payment proof
@@ -181,6 +185,80 @@ const parseSchedule = (body, branchHours = { openingTime: DEFAULT_OPENING_TIME, 
     }
 
     return { date, dateKey, startTime, endTime, duration };
+};
+
+const formatClock = (minutes) => {
+    const hour = Math.floor((minutes % 1440) / 60);
+    return `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+};
+
+const formatDay = (date) => date.toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+
+// waiting or notified entries whose slot has started are reported as expired
+const waitlistStatus = (entry) => (
+    ACTIVE_WAITLIST_STATUSES.includes(entry.status) && slotHasStarted(toDateKey(entry.date), entry.startTime)
+        ? "expired"
+        : entry.status
+);
+
+const serializeWaitlistEntry = (entry) => {
+    const table = entry.table;
+    const branch = entry.branchId;
+
+    return {
+        id: String(entry._id),
+        branchId: String(branch._id || branch),
+        branchName: branch.branchName ? formatBranchName(branch) : "",
+        tableId: String(table._id || table),
+        tableName: table.name,
+        tableType: table.tableType,
+        date: toDateKey(entry.date),
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        duration: entry.duration,
+        status: waitlistStatus(entry),
+        notifiedAt: entry.notifiedAt,
+        createdAt: entry.createdAt
+    };
+};
+
+const populateWaitlist = (query) => query
+    .populate("table", "name tableType")
+    .populate("branchId", "branchName branchCode");
+
+// Tells every waiting client whose whole slot on this table is now free; the first to book gets it.
+// Call after a booking stops holding a slot (client cancel, reschedule, table change, admin reject).
+// It never throws, so callers can run it after responding.
+export const releaseSlot = async ({ tableId, date, startTime, endTime }) => {
+    try {
+        const entries = await populateWaitlist(Waitlist.find({
+            table: tableId,
+            date,
+            status: "waiting",
+            startTime: { $lt: endTime },
+            endTime: { $gt: startTime }
+        }));
+
+        for (const entry of entries) {
+            if (slotHasStarted(toDateKey(entry.date), entry.startTime)) continue;
+            if (await findOverlap({ tableId, date, startTime: entry.startTime, endTime: entry.endTime })) continue;
+
+            entry.status = "notified";
+            entry.notifiedAt = new Date();
+            await entry.save();
+
+            await notifyUser({
+                user: entry.user,
+                branchId: entry.branchId._id,
+                type: "waitlist",
+                title: "Your waitlisted table is free",
+                message: `${entry.table.name} at ${formatBranchName(entry.branchId)} is free on ${formatDay(entry.date)}, ${formatClock(entry.startTime)} – ${formatClock(entry.endTime)}. Book it before someone else does.`,
+                link: "/client/bookings?tab=waitlist"
+            });
+        }
+    } catch (error) {
+        console.error("Release slot error:", error.message);
+    }
 };
 
 const loadOwnedBooking = async (reference, userId) => {
@@ -368,6 +446,15 @@ export const createClientBooking = async (req, res) => {
             }
         }
 
+        await Waitlist.updateMany({
+            user: req.user._id,
+            table: table._id,
+            date: schedule.date,
+            status: { $in: ACTIVE_WAITLIST_STATUSES },
+            startTime: { $lt: schedule.endTime },
+            endTime: { $gt: schedule.startTime }
+        }, { $set: { status: "booked" } });
+
         const created = await populateBooking(Booking.findById(booking._id));
         res.status(201).json({ booking: serializeBooking(created) });
     } catch (error) {
@@ -413,6 +500,7 @@ export const cancelClientBooking = async (req, res) => {
         await booking.save();
 
         res.status(200).json({ booking: serializeBooking(booking) });
+        releaseSlot({ tableId: booking.table._id, date: booking.date, startTime: booking.startTime, endTime: booking.endTime });
     } catch (error) {
         console.error("Cancel client booking error:", error.message);
         res.status(500).json({ message: "Server error" });
@@ -446,6 +534,7 @@ export const rescheduleClientBooking = async (req, res) => {
             return res.status(409).json({ message: "This table is already booked for the selected time" });
         }
 
+        const previousSlot = { tableId: booking.table._id, date: booking.date, startTime: booking.startTime, endTime: booking.endTime };
         booking.date = schedule.date;
         booking.startTime = schedule.startTime;
         booking.endTime = schedule.endTime;
@@ -455,6 +544,7 @@ export const rescheduleClientBooking = async (req, res) => {
         await booking.save();
 
         res.status(200).json({ booking: serializeBooking(booking) });
+        releaseSlot(previousSlot);
     } catch (error) {
         console.error("Reschedule client booking error:", error.message);
         res.status(500).json({ message: "Server error" });
@@ -492,6 +582,7 @@ export const changeClientBookingTable = async (req, res) => {
             return res.status(409).json({ message: "This table is already booked for the selected time" });
         }
 
+        const previousSlot = { tableId: booking.table._id, date: booking.date, startTime: booking.startTime, endTime: booking.endTime };
         booking.table = table._id;
         booking.hourlyRate = table.pricePerHour;
         booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), booking.date, booking.startTime);
@@ -500,8 +591,103 @@ export const changeClientBookingTable = async (req, res) => {
 
         const updated = await populateBooking(Booking.findById(booking._id));
         res.status(200).json({ booking: serializeBooking(updated) });
+        releaseSlot(previousSlot);
     } catch (error) {
         console.error("Change client booking table error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const listClientWaitlist = async (req, res) => {
+    try {
+        const entries = await populateWaitlist(Waitlist.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(50));
+        res.status(200).json({ waitlist: entries.map(serializeWaitlistEntry) });
+    } catch (error) {
+        console.error("List client waitlist error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// joins the waitlist for a slot that is currently booked: { tableId, date, startTime, duration }
+export const joinWaitlist = async (req, res) => {
+    try {
+        const table = isObjectId(req.body.tableId) ? await Table.findById(req.body.tableId) : null;
+        if (!table) {
+            return res.status(404).json({ message: "Table not found" });
+        }
+
+        if (table.status !== "available") {
+            return res.status(400).json({ message: "This table is not available for booking" });
+        }
+
+        const schedule = parseSchedule(req.body);
+        if (schedule.error) {
+            return res.status(400).json({ message: schedule.error });
+        }
+
+        const slot = { tableId: table._id, date: schedule.date, startTime: schedule.startTime, endTime: schedule.endTime };
+        const overlap = await findOverlap(slot);
+        if (!overlap) {
+            return res.status(409).json({ message: "This time is free. Book it now instead of joining the waitlist" });
+        }
+
+        if (String(overlap.user) === String(req.user._id)) {
+            return res.status(409).json({ message: "You already have a booking at this time" });
+        }
+
+        const activeFilter = { user: req.user._id, status: { $in: ACTIVE_WAITLIST_STATUSES } };
+        const duplicate = await Waitlist.findOne({
+            ...activeFilter,
+            table: table._id,
+            date: schedule.date,
+            startTime: { $lt: schedule.endTime },
+            endTime: { $gt: schedule.startTime }
+        });
+        if (duplicate && waitlistStatus(duplicate) !== "expired") {
+            return res.status(409).json({ message: "You are already on the waitlist for this time" });
+        }
+
+        const active = await Waitlist.find(activeFilter).select("date startTime status");
+        if (active.filter((entry) => waitlistStatus(entry) !== "expired").length >= MAX_WAITLIST_ENTRIES) {
+            return res.status(400).json({ message: `You can be on the waitlist for up to ${MAX_WAITLIST_ENTRIES} slots at a time` });
+        }
+
+        const entry = await Waitlist.create({
+            branchId: table.branchId,
+            user: req.user._id,
+            table: table._id,
+            date: schedule.date,
+            startTime: schedule.startTime,
+            endTime: schedule.endTime,
+            duration: schedule.duration
+        });
+
+        const created = await populateWaitlist(Waitlist.findById(entry._id));
+        res.status(201).json({ entry: serializeWaitlistEntry(created) });
+    } catch (error) {
+        console.error("Join waitlist error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const leaveWaitlist = async (req, res) => {
+    try {
+        const entry = isObjectId(req.params.id)
+            ? await populateWaitlist(Waitlist.findOne({ _id: req.params.id, user: req.user._id }))
+            : null;
+        if (!entry) {
+            return res.status(404).json({ message: "Waitlist entry not found" });
+        }
+
+        if (!ACTIVE_WAITLIST_STATUSES.includes(waitlistStatus(entry))) {
+            return res.status(400).json({ message: "This waitlist entry is no longer active" });
+        }
+
+        entry.status = "cancelled";
+        await entry.save();
+        res.status(200).json({ entry: serializeWaitlistEntry(entry) });
+    } catch (error) {
+        console.error("Leave waitlist error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 };

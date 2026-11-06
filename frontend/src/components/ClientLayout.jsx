@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Logo from "./Logo";
 import { SidebarContext } from "./sidebarContext";
+import NotificationsProvider from "./NotificationsProvider";
 import { logout } from "../store/authSlice";
 
 // `match` is the path prefix that keeps an item highlighted on its sub-pages
@@ -92,7 +93,9 @@ export default function ClientLayout() {
 
     return (
         <SidebarContext.Provider value={{ isOpen, openSidebar: () => setIsOpen(true) }}>
-            <Outlet />
+            <NotificationsProvider>
+                <Outlet />
+            </NotificationsProvider>
 
             <div
                 className={`fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}

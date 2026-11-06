@@ -3,8 +3,9 @@ import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, getApiError, getBookingPrice, getSlotTimes, hasSlotStarted, isTableFree } from "../utils/clientBookings";
+import { MAX_BOOKING_DAYS, fetchBranchAvailability, fetchBranchTables, getApiError, getBookingPrice, getSlotTimes, hasSlotStarted, isTableFree, joinWaitlist } from "../utils/clientBookings";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -76,6 +77,9 @@ export default function ClientScheduleSelection() {
     // booked slots for `date`; while `date` differs from selectedDate the slots are still loading
     const [availability, setAvailability] = useState({ date: null, busy: [], error: "" });
     const [reloadCount, setReloadCount] = useState(0);
+    // booked start time the client may join the waitlist for, and the join request's state
+    const [waitlistTime, setWaitlistTime] = useState(null);
+    const [waitlist, setWaitlist] = useState({ state: "idle", message: "" });
 
     useEffect(() => {
         if (!branchId) return undefined;
@@ -123,9 +127,34 @@ export default function ClientScheduleSelection() {
     const selectedDateObject = selectedDate ? fromDateKey(selectedDate) : null;
     const slots = getSlotTimes(branch);
     const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: selectedDate, startTime: selectedTime ?? Number.NaN });
-    const slotAvailable = (start, length = duration) => {
-        if (!availabilityReady || start + length * 60 > branch.closingTime || hasSlotStarted(selectedDate, start)) return false;
-        return isTableFree(availability.busy, table.id, start, start + length * 60);
+    // "booked" slots can be waitlisted; "unavailable" ones are past, past closing, or still loading
+    const slotState = (start, length = duration) => {
+        if (!availabilityReady || start + length * 60 > branch.closingTime || hasSlotStarted(selectedDate, start)) return "unavailable";
+        return isTableFree(availability.busy, table.id, start, start + length * 60) ? "free" : "booked";
+    };
+    const slotAvailable = (start, length = duration) => slotState(start, length) === "free";
+
+    const resetWaitlist = () => {
+        setWaitlistTime(null);
+        setWaitlist({ state: "idle", message: "" });
+    };
+
+    const chooseWaitlistTime = (value) => {
+        setSelectedTime(null);
+        sessionStorage.removeItem(KEYS.time);
+        setWaitlist({ state: "idle", message: "" });
+        setWaitlistTime(waitlistTime === value ? null : value);
+    };
+
+    const submitWaitlist = async () => {
+        if (waitlistTime === null || waitlist.state === "saving") return;
+        setWaitlist({ state: "saving", message: "" });
+        try {
+            await joinWaitlist({ tableId: table.id, date: selectedDate, startTime: waitlistTime, duration });
+            setWaitlist({ state: "joined", message: "" });
+        } catch (error) {
+            setWaitlist({ state: "error", message: getApiError(error, "Could not join the waitlist. Please try again.") });
+        }
     };
 
     const chooseDate = (value) => {
@@ -133,6 +162,7 @@ export default function ClientScheduleSelection() {
         const nextValue = selectedDate === value ? "" : value;
         setSelectedDate(nextValue);
         setSelectedTime(null);
+        resetWaitlist();
         nextValue ? sessionStorage.setItem(KEYS.date, nextValue) : sessionStorage.removeItem(KEYS.date);
         sessionStorage.removeItem(KEYS.time);
     };
@@ -140,6 +170,7 @@ export default function ClientScheduleSelection() {
     const chooseDuration = (value) => {
         setDuration(value);
         sessionStorage.setItem(KEYS.duration, String(value));
+        resetWaitlist();
         if (selectedTime !== null && !slotAvailable(selectedTime, value)) {
             setSelectedTime(null);
             sessionStorage.removeItem(KEYS.time);
@@ -148,6 +179,7 @@ export default function ClientScheduleSelection() {
 
     const chooseTime = (value) => {
         if (!slotAvailable(value)) return;
+        resetWaitlist();
         const nextValue = selectedTime === value ? null : value;
         setSelectedTime(nextValue);
         nextValue === null ? sessionStorage.removeItem(KEYS.time) : sessionStorage.setItem(KEYS.time, String(nextValue));
@@ -166,7 +198,7 @@ export default function ClientScheduleSelection() {
 
             <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
                 <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7">
-                    <div className="flex items-center gap-3"><SidebarToggle /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
+                    <div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
                     <div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div></div>
                 </div>
             </header>
@@ -214,7 +246,8 @@ export default function ClientScheduleSelection() {
                     <section className="dashboard-rise rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "240ms" }}>
                         <SectionTitle icon="spark" title="Start time" text={!selectedDate ? "Select a date first" : availabilityReady ? `${duration}-hour slots for selected date` : availability.error ? "Availability unavailable" : "Checking availability..."} />
                         {availability.error && availability.date === selectedDate && <p className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{availability.error}<button type="button" onClick={retryLoad} className="font-bold underline underline-offset-2">Retry</button></p>}
-                        <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map((minutes) => { const available = slotAvailable(minutes); const active = selectedTime === minutes && available; return <button key={minutes} type="button" onClick={() => chooseTime(minutes)} disabled={!available} className={`rounded-xl border px-2 py-3 text-xs font-bold ${active ? "border-red-500 bg-red-600 text-white" : available ? "border-white/[0.07] bg-white/[0.025] text-neutral-400 hover:text-white" : "cursor-not-allowed border-white/[0.04] text-neutral-800 line-through"}`}>{formatTime(minutes)}</button>; })}</div>
+                        <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4">{slots.map((minutes) => { const state = slotState(minutes); const active = selectedTime === minutes && state === "free"; const waitlisted = waitlistTime === minutes && state === "booked"; return <button key={minutes} type="button" onClick={() => state === "booked" ? chooseWaitlistTime(minutes) : chooseTime(minutes)} disabled={state === "unavailable"} title={state === "booked" ? "Booked · tap to join the waitlist" : undefined} className={`rounded-xl border px-2 py-3 text-xs font-bold ${active ? "border-red-500 bg-red-600 text-white" : waitlisted ? "border-amber-400 bg-amber-400/15 text-amber-300" : state === "free" ? "border-white/[0.07] bg-white/[0.025] text-neutral-400 hover:text-white" : state === "booked" ? "border-dashed border-amber-400/25 text-amber-400/50 hover:border-amber-400/50 hover:text-amber-300" : "cursor-not-allowed border-white/[0.04] text-neutral-800 line-through"}`}>{formatTime(minutes)}</button>; })}</div>
+                        {waitlistTime !== null && slotState(waitlistTime) === "booked" && <WaitlistPanel table={table} time={`${formatTime(waitlistTime)} – ${formatTime(waitlistTime + duration * 60)}`} waitlist={waitlist} onJoin={submitWaitlist} />}
                     </section>
                 </div>
 
@@ -224,8 +257,23 @@ export default function ClientScheduleSelection() {
                         <button type="button" onClick={continueBooking} disabled={!selectedDate || !validTime} className="group inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 text-sm font-bold hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-600">Continue <Icon name="next" className="h-4 w-4 group-hover:translate-x-1" /></button>
                     </div>
                 </section>
-                <p className="mt-6 text-center text-[11px] text-neutral-700">Crossed-out times are already booked or have passed.</p>
+                <p className="mt-6 text-center text-[11px] text-neutral-700">Crossed-out times have passed. Dashed amber times are booked; tap one to join its waitlist.</p>
             </main>
+        </div>
+    );
+}
+
+function WaitlistPanel({ table, time, waitlist, onJoin }) {
+    if (waitlist.state === "joined") {
+        return <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4" role="status"><p className="text-xs font-bold text-emerald-300">You are on the waitlist for {table.name}, {time}.</p><p className="mt-1 text-[11px] leading-relaxed text-emerald-400/70">We will notify you as soon as it frees up. The first person to book it gets it.</p><Link to="/client/bookings?tab=waitlist" className="mt-3 inline-flex text-[11px] font-bold text-emerald-300 underline underline-offset-2">View my waitlist</Link></div>;
+    }
+
+    return (
+        <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-4">
+            <p className="text-xs font-bold text-amber-200">{table.name} is booked for {time}.</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-200/60">Join the waitlist and we will notify you if this time frees up.</p>
+            {waitlist.state === "error" && <p className="mt-2 text-[11px] text-red-400" role="alert">{waitlist.message}</p>}
+            <button type="button" onClick={onJoin} disabled={waitlist.state === "saving"} className="mt-3 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-black text-black transition-colors hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60">{waitlist.state === "saving" ? "Joining..." : "Join waitlist"}</button>
         </div>
     );
 }

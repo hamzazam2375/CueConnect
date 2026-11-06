@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
+import NotificationBell from "../components/NotificationBell";
 import branches from "../data/branches";
 import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.jpg";
@@ -113,7 +114,7 @@ export default function ClientDashboard() {
                 <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
                     <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-7 lg:px-10">
                         <div className="flex items-center gap-3">
-                            <SidebarToggle />
+                            <SidebarToggle /><NotificationBell />
                             <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
                             <div className="ml-3 hidden border-l border-white/[0.08] pl-5 lg:block">
                                 <p className="text-xs text-neutral-500">{dateLabel}</p>

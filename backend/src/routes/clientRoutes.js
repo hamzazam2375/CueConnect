@@ -11,7 +11,10 @@ import {
     createClientBooking,
     cancelClientBooking,
     rescheduleClientBooking,
-    changeClientBookingTable
+    changeClientBookingTable,
+    listClientWaitlist,
+    joinWaitlist,
+    leaveWaitlist
 } from "../controllers/clientBookingController.js";
 import {
     listMembershipPlans,
@@ -20,6 +23,12 @@ import {
     cancelClientMembership,
     getClientMembershipProof
 } from "../controllers/clientMembershipController.js";
+import {
+    getSocketToken,
+    listNotifications,
+    markNotificationRead,
+    markAllNotificationsRead
+} from "../controllers/clientNotificationController.js";
 
 const router = express.Router();
 
@@ -42,5 +51,14 @@ router.get("/memberships", listClientMemberships);
 router.post("/memberships", uploadPaymentProof, createClientMembership);
 router.patch("/memberships/:reference/cancel", cancelClientMembership);
 router.get("/memberships/:reference/payment-proof", getClientMembershipProof);
+
+router.get("/waitlist", listClientWaitlist);
+router.post("/waitlist", joinWaitlist);
+router.patch("/waitlist/:id/cancel", leaveWaitlist);
+
+router.get("/socket-token", getSocketToken);
+router.get("/notifications", listNotifications);
+router.patch("/notifications/read-all", markAllNotificationsRead);
+router.patch("/notifications/:id/read", markNotificationRead);
 
 export default router;
