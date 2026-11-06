@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Logo from "./Logo";
 
 const footerLinks = [
@@ -20,12 +21,12 @@ export default function Footer({ branches }) {
                             Goodshot Snooker Club — your premier destination for snooker and billiards.
                             Play with passion, compete with pride.
                         </p>
-                        <a
-                            href="/admin/login"
+                        <Link
+                            to="/admin/login"
                             className="inline-block mt-4 px-3 py-1 text-[11px] font-medium text-gray-500 border border-gray-700/50 rounded hover:text-gray-300 hover:border-gray-600 transition-colors duration-200"
                         >
                             Admin Login
-                        </a>
+                        </Link>
                     </div>
 
                     {/* nav links */}
@@ -34,12 +35,21 @@ export default function Footer({ branches }) {
                         <ul className="space-y-2">
                             {footerLinks.map((link) => (
                                 <li key={link.label}>
-                                    <a
-                                        href={link.href}
-                                        className="text-gray-400 hover:text-red-400 text-sm transition-colors duration-200"
-                                    >
-                                        {link.label}
-                                    </a>
+                                    {link.href.startsWith("/") ? (
+                                        <Link
+                                            to={link.href}
+                                            className="text-gray-400 hover:text-red-400 text-sm transition-colors duration-200"
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    ) : (
+                                        <a
+                                            href={link.href}
+                                            className="text-gray-400 hover:text-red-400 text-sm transition-colors duration-200"
+                                        >
+                                            {link.label}
+                                        </a>
+                                    )}
                                 </li>
                             ))}
                         </ul>
