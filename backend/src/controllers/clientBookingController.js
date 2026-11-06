@@ -6,6 +6,7 @@ import Booking from "../models/booking.js";
 import Membership from "../models/membership.js";
 import Waitlist from "../models/waitlist.js";
 import { notifyUser } from "../services/notifications.js";
+import { POINT_VALUE, maxRedeemablePoints, redeemPoints, restorePoints } from "../services/loyalty.js";
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 
@@ -21,6 +22,9 @@ const ADVANCE_RATE = 0.5;
 const getAdvanceAmount = (total) => Math.ceil(total * ADVANCE_RATE);
 
 const priceBooking = (hourlyRate, duration, discount) => Math.round(hourlyRate * duration * (100 - discount) / 100);
+
+// total after the membership discount and any loyalty points spent on the booking
+const bookingTotal = (hourlyRate, duration, discount, pointsUsed = 0) => Math.max(priceBooking(hourlyRate, duration, discount) - pointsUsed * POINT_VALUE, 0);
 
 // the client's best running membership that covers this branch
 const findMemberDiscount = (userId, branchId) => Membership.findOne({
@@ -107,7 +111,9 @@ const serializeBooking = (booking) => {
         hourlyRate: booking.hourlyRate,
         subtotal: booking.hourlyRate * booking.duration,
         membershipDiscount: booking.membershipDiscount,
-        discountAmount: booking.hourlyRate * booking.duration - booking.totalAmount,
+        discountAmount: booking.hourlyRate * booking.duration - priceBooking(booking.hourlyRate, booking.duration, booking.membershipDiscount),
+        loyaltyPointsUsed: booking.loyaltyPointsUsed,
+        loyaltyDiscount: booking.loyaltyPointsUsed * POINT_VALUE,
         total: booking.totalAmount,
         advanceAmount: booking.advanceAmount,
         remainingAmount: Math.max(booking.totalAmount - booking.advanceAmount, 0),
@@ -375,12 +381,14 @@ export const getClientBooking = async (req, res) => {
     }
 };
 
-// multipart request: booking fields plus `paymentAccountId`, `transactionId`, and the `paymentProof` image
+// multipart request: booking fields plus `paymentAccountId`, `transactionId`, the `paymentProof` image,
+// and optional `loyaltyPoints` to spend
 export const createClientBooking = async (req, res) => {
     const fail = (status, message) => {
         discardUpload(req.file);
         return res.status(status).json({ message });
     };
+    let redeemed = 0;
 
     try {
         const table = isObjectId(req.body.tableId) ? await Table.findById(req.body.tableId) : null;
@@ -417,7 +425,25 @@ export const createClientBooking = async (req, res) => {
         }
 
         const membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), schedule.date, schedule.startTime);
-        const totalAmount = priceBooking(table.pricePerHour, schedule.duration, membershipDiscount);
+        const loyaltyPointsUsed = Number(req.body.loyaltyPoints || 0);
+        if (!Number.isInteger(loyaltyPointsUsed) || loyaltyPointsUsed < 0) {
+            return fail(400, "Loyalty points must be a whole number");
+        }
+
+        const maxPoints = maxRedeemablePoints(priceBooking(table.pricePerHour, schedule.duration, membershipDiscount));
+        if (loyaltyPointsUsed > maxPoints) {
+            return fail(400, `You can use up to ${maxPoints} points on this booking`);
+        }
+
+        if (loyaltyPointsUsed) {
+            const description = `${table.name} on ${formatDay(schedule.date)}, ${formatClock(schedule.startTime)}`;
+            if (!await redeemPoints({ user: req.user._id, points: loyaltyPointsUsed, description })) {
+                return fail(400, "You do not have enough loyalty points");
+            }
+            redeemed = loyaltyPointsUsed;
+        }
+
+        const totalAmount = bookingTotal(table.pricePerHour, schedule.duration, membershipDiscount, loyaltyPointsUsed);
         let booking;
         for (let attempt = 0; attempt < 5; attempt += 1) {
             try {
@@ -432,6 +458,7 @@ export const createClientBooking = async (req, res) => {
                     duration: schedule.duration,
                     hourlyRate: table.pricePerHour,
                     membershipDiscount,
+                    loyaltyPointsUsed,
                     totalAmount,
                     advanceAmount: getAdvanceAmount(totalAmount),
                     paymentAccount: snapshotPaymentAccount(payment.account),
@@ -459,6 +486,7 @@ export const createClientBooking = async (req, res) => {
         res.status(201).json({ booking: serializeBooking(created) });
     } catch (error) {
         discardUpload(req.file);
+        await restorePoints({ user: req.user._id, points: redeemed, description: "Booking could not be saved" }).catch(() => {});
         console.error("Create client booking error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
@@ -498,6 +526,7 @@ export const cancelClientBooking = async (req, res) => {
         booking.cancellationReason = String(req.body.reason || "").trim().slice(0, 300) || null;
         booking.cancelledAt = new Date();
         await booking.save();
+        await restorePoints({ user: req.user._id, points: booking.loyaltyPointsUsed, description: `Cancelled booking ${booking.reference}` });
 
         res.status(200).json({ booking: serializeBooking(booking) });
         releaseSlot({ tableId: booking.table._id, date: booking.date, startTime: booking.startTime, endTime: booking.endTime });
@@ -540,7 +569,7 @@ export const rescheduleClientBooking = async (req, res) => {
         booking.endTime = schedule.endTime;
         booking.duration = schedule.duration;
         booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, booking.branchId._id), schedule.date, schedule.startTime);
-        booking.totalAmount = priceBooking(booking.hourlyRate, schedule.duration, booking.membershipDiscount);
+        booking.totalAmount = bookingTotal(booking.hourlyRate, schedule.duration, booking.membershipDiscount, booking.loyaltyPointsUsed);
         await booking.save();
 
         res.status(200).json({ booking: serializeBooking(booking) });
@@ -586,7 +615,7 @@ export const changeClientBookingTable = async (req, res) => {
         booking.table = table._id;
         booking.hourlyRate = table.pricePerHour;
         booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), booking.date, booking.startTime);
-        booking.totalAmount = priceBooking(table.pricePerHour, booking.duration, booking.membershipDiscount);
+        booking.totalAmount = bookingTotal(table.pricePerHour, booking.duration, booking.membershipDiscount, booking.loyaltyPointsUsed);
         await booking.save();
 
         const updated = await populateBooking(Booking.findById(booking._id));

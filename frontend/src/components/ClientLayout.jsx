@@ -13,7 +13,7 @@ const navigation = [
     { label: "Book a table", icon: "calendar", href: "/client/book", match: "/client/book" },
     { label: "My bookings", icon: "ticket", href: "/client/bookings", match: "/client/bookings" },
     { label: "My membership", icon: "crown", href: "/client/memberships/manage", match: "/client/memberships" },
-    { label: "Loyalty points", icon: "star" },
+    { label: "Loyalty points", icon: "star", href: "/client/loyalty", match: "/client/loyalty" },
     { label: "Events", icon: "trophy", href: "/#events", external: true }
 ];
 

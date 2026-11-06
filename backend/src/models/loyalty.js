@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const loyaltySchema = new mongoose.Schema(
     {
+        // branch where the client first earned points; the balance itself is usable at every branch
         branchId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Branch",
@@ -22,9 +23,10 @@ const loyaltySchema = new mongoose.Schema(
 
         history: [
             {
+                // refunded: redeemed points given back, e.g. when a booking is cancelled
                 type: {
                     type: String,
-                    enum: ["earned", "redeemed"]
+                    enum: ["earned", "redeemed", "refunded"]
                 },
 
                 points: {

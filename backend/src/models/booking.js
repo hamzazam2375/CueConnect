@@ -62,6 +62,12 @@ const bookingSchema = new mongoose.Schema(
             default: 0
         },
 
+        // loyalty points spent on this booking; each point takes PKR 1 off the total
+        loyaltyPointsUsed: {
+            type: Number,
+            default: 0
+        },
+
         totalAmount: {
             type: Number,
             required: true

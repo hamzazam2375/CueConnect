@@ -21,6 +21,7 @@ import ClientMemberships from "./pages/ClientMemberships";
 import ClientMembershipReview from "./pages/ClientMembershipReview";
 import ClientMembershipPayment from "./pages/ClientMembershipPayment";
 import ClientMembershipHistory from "./pages/ClientMembershipHistory";
+import ClientLoyalty from "./pages/ClientLoyalty";
 import AdminDashboard from "./pages/AdminDashboard";
 import TableManagement from "./pages/TableManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -47,6 +48,7 @@ export default function App() {
                         <Route path="/client/memberships/review" element={<ClientMembershipReview />} />
                         <Route path="/client/memberships/payment" element={<ClientMembershipPayment />} />
                         <Route path="/client/memberships/manage" element={<ClientMembershipHistory />} />
+                        <Route path="/client/loyalty" element={<ClientLoyalty />} />
                         <Route path="/client/book" element={<ClientBooking />} />
                         <Route path="/client/book/table" element={<ClientTableSelection />} />
                         <Route path="/client/book/schedule" element={<ClientScheduleSelection />} />

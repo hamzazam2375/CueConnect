@@ -9,6 +9,7 @@ import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.jpg";
 import { fetchClientBookings } from "../utils/clientBookings";
 import { fetchClientMemberships, findCurrentMembership } from "../utils/clientMemberships";
+import { fetchClientLoyalty } from "../utils/loyalty";
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
@@ -74,6 +75,7 @@ export default function ClientDashboard() {
     const { user, isLoading, error } = useSelector((state) => state.auth);
     const [bookings, setBookings] = useState([]);
     const [memberships, setMemberships] = useState([]);
+    const [points, setPoints] = useState(0);
     const currentMembership = findCurrentMembership(memberships);
     const membershipTitle = !currentMembership ? "Cue Club Basic" : currentMembership.status === "active" ? `${currentMembership.plan} member` : `${currentMembership.plan} awaiting verification`;
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
@@ -90,6 +92,9 @@ export default function ClientDashboard() {
         // the membership cards fall back to the basic tier if this fails
         fetchClientMemberships()
             .then((data) => active && setMemberships(data))
+            .catch(() => {});
+        fetchClientLoyalty()
+            .then((data) => active && setPoints(data.points))
             .catch(() => {});
         return () => { active = false; };
     }, []);
@@ -153,7 +158,7 @@ export default function ClientDashboard() {
 
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
                         <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
-                        <StatCard icon="star" label="Loyalty points" value="0" detail="Play to earn points" delay="140ms" />
+                        <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} off bookings` : "Play to earn points"} delay="140ms" />
                         <StatCard icon="crown" label="Membership" value={!currentMembership ? "Basic" : currentMembership.status === "active" ? currentMembership.plan : "Pending"} detail={!currentMembership ? "Explore premium plans" : currentMembership.status === "active" ? `Expires ${new Date(currentMembership.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : `${currentMembership.plan} awaiting verification`} delay="200ms" />
                         <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} branches`} delay="260ms" />
                     </section>
@@ -191,8 +196,7 @@ export default function ClientDashboard() {
                         <div className="space-y-6">
                             <article className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "360ms" }}>
                                 <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Your status</p><h2 className="mt-1 text-xl font-bold">{membershipTitle}</h2>{currentMembership?.status === "pending" && <p className="mt-1 text-[10px] text-amber-400">Ref: {currentMembership.reference}</p>}</div><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 text-neutral-300"><Icon name="crown" /></span></div>
-                                <div className="mt-7 flex items-end justify-between"><div><p className="text-3xl font-black">0 <span className="text-sm font-medium text-neutral-500">points</span></p><p className="mt-1 text-xs text-neutral-500">500 points to Silver</p></div><span className="text-xs font-bold text-neutral-400">0%</span></div>
-                                <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="dashboard-progress h-full w-[4%] rounded-full bg-gradient-to-r from-red-700 to-red-500" /></div>
+                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">1 point for every PKR 100 you pay</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
                                 <Link to={memberships.length ? "/client/memberships/manage" : "/client/memberships"} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">{memberships.length ? "Manage memberships" : "Explore membership plans"} <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
                             </article>
 

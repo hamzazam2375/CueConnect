@@ -8,6 +8,7 @@ import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import PaymentProofForm from "../components/PaymentProofForm";
 import { createClientBooking, fetchBranchTables, formatOpeningHours, getAdvanceAmount, getApiError, getBookingPrice } from "../utils/clientBookings";
 import { TRANSACTION_ID } from "../utils/payments";
+import { fetchClientLoyalty, maxRedeemablePoints, POINT_VALUE } from "../utils/loyalty";
 
 const KEYS = {
     branch: "cueconnect_booking_branch",
@@ -28,7 +29,8 @@ function Icon({ name, className = "h-5 w-5" }) {
         edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" /></>,
         shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></>,
         arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>
+        receipt: <><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><path d="M9 7h6M9 11h6M9 15h3" /></>,
+        star: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2l-5-4.9 6.9-1z" />
     };
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -98,6 +100,17 @@ export default function ClientBookingReview() {
     const [accountId, setAccountId] = useState(null);
     const [transactionId, setTransactionId] = useState("");
     const [proofFile, setProofFile] = useState(null);
+    const [pointsBalance, setPointsBalance] = useState(0);
+    const [pointsInput, setPointsInput] = useState("");
+
+    // without a balance the points card just stays hidden
+    useEffect(() => {
+        let active = true;
+        fetchClientLoyalty()
+            .then((result) => active && setPointsBalance(result.points))
+            .catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         if (!branchId) return undefined;
@@ -133,7 +146,10 @@ export default function ClientBookingReview() {
 
     const endTime = startTime + duration * 60;
     const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: dateValue, startTime });
-    const { total } = price;
+    const maxPoints = Math.min(pointsBalance, maxRedeemablePoints(price.total));
+    const pointsUsed = Math.min(Math.max(Number.parseInt(pointsInput, 10) || 0, 0), maxPoints);
+    const pointsDiscount = pointsUsed * POINT_VALUE;
+    const total = price.total - pointsDiscount;
     const advance = getAdvanceAmount(total);
     const accounts = branch.paymentAccounts;
     const account = accounts.find((item) => item.id === accountId);
@@ -147,7 +163,7 @@ export default function ClientBookingReview() {
         setSaveError("");
 
         try {
-            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration, paymentAccountId: account.id, transactionId: transactionId.trim(), paymentProof: proofFile });
+            const booking = await createClientBooking({ tableId: table.id, date: dateValue, startTime, duration, paymentAccountId: account.id, transactionId: transactionId.trim(), paymentProof: proofFile, loyaltyPoints: pointsUsed });
             clearDraft();
             setConfirmedBooking(booking);
         } catch (error) {
@@ -171,6 +187,8 @@ export default function ClientBookingReview() {
                         <DetailCard icon="clock" label="Schedule" title={`${formatTime(startTime)} – ${formatTime(endTime)}`} detail={`${duration} ${duration === 1 ? "hour" : "hours"} of play`} editTo="/client/book/schedule" />
                     </div>
 
+                    {maxPoints > 0 && <LoyaltyPointsCard balance={pointsBalance} maxPoints={maxPoints} value={pointsInput} onChange={setPointsInput} pointsUsed={pointsUsed} />}
+
                     <PaymentProofForm amount={advance} label="Advance payment" unavailableText="This club has not added a payment account yet, so the advance cannot be paid online. Please contact the club or choose another branch." accounts={accounts} accountId={accountId} onAccountChange={setAccountId} transactionId={transactionId} onTransactionIdChange={setTransactionId} proofFile={proofFile} onProofChange={setProofFile} />
 
                     <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
@@ -180,7 +198,7 @@ export default function ClientBookingReview() {
 
                 <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6 lg:sticky lg:top-6" style={{ animationDelay: "200ms" }}>
                     <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name="receipt" /></span><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Price summary</p><h2 className="mt-0.5 text-lg font-bold">Booking total</h2></div></div>
-                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div>{price.discount > 0 && <div className="flex justify-between text-neutral-500"><span>{data.membership.plan} member · {price.discount}% off</span><span className="text-emerald-400">− PKR {price.discountAmount.toLocaleString()}</span></div>}<div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
+                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div>{price.discount > 0 && <div className="flex justify-between text-neutral-500"><span>{data.membership.plan} member · {price.discount}% off</span><span className="text-emerald-400">− PKR {price.discountAmount.toLocaleString()}</span></div>}{pointsUsed > 0 && <div className="flex justify-between text-neutral-500"><span>{pointsUsed.toLocaleString()} loyalty points</span><span className="text-emerald-400">− PKR {pointsDiscount.toLocaleString()}</span></div>}<div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
                     <div className="space-y-3 border-b border-white/[0.07] py-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Booking total</span><span className="font-semibold text-neutral-300">PKR {total.toLocaleString()}</span></div><div className="flex justify-between text-neutral-500"><span>Pay at club</span><span>PKR {(total - advance).toLocaleString()}</span></div></div>
                     <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Advance now</p><p className="mt-1 text-xs text-neutral-600">50% of the total</p></div><p className="text-2xl font-black text-red-400">PKR {advance.toLocaleString()}</p></div>
 
@@ -194,6 +212,27 @@ export default function ClientBookingReview() {
                 </aside>
             </div>
         </PageShell>
+    );
+}
+
+function LoyaltyPointsCard({ balance, maxPoints, value, onChange, pointsUsed }) {
+    const setPoints = (next) => onChange(next ? String(next) : "");
+    return (
+        <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500/10 text-amber-400"><Icon name="star" className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-bold">Use loyalty points</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">You have {balance.toLocaleString()} points. Up to {maxPoints.toLocaleString()} can be used on this booking, at PKR {POINT_VALUE} each.</p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <input type="number" inputMode="numeric" min="0" max={maxPoints} step="1" value={value} onChange={(event) => onChange(event.target.value)} placeholder="0" aria-label="Points to use" className="w-32 rounded-xl border border-white/[0.08] bg-black/40 px-3.5 py-2.5 text-sm font-semibold text-white outline-none focus:border-amber-500/40" />
+                        <button type="button" onClick={() => setPoints(maxPoints)} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20">Use {maxPoints.toLocaleString()}</button>
+                        {pointsUsed > 0 && <button type="button" onClick={() => setPoints(0)} className="rounded-xl px-3 py-2.5 text-xs font-bold text-neutral-500 transition-colors hover:text-white">Clear</button>}
+                    </div>
+                    {Number(value) > maxPoints && <p className="mt-2 text-[11px] text-amber-400">Only {maxPoints.toLocaleString()} points can be used here, so that is what will be applied.</p>}
+                </div>
+            </div>
+        </article>
     );
 }
 

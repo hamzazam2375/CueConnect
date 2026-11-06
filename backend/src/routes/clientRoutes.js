@@ -29,6 +29,7 @@ import {
     markNotificationRead,
     markAllNotificationsRead
 } from "../controllers/clientNotificationController.js";
+import { getClientLoyalty } from "../controllers/clientLoyaltyController.js";
 
 const router = express.Router();
 
@@ -55,6 +56,8 @@ router.get("/memberships/:reference/payment-proof", getClientMembershipProof);
 router.get("/waitlist", listClientWaitlist);
 router.post("/waitlist", joinWaitlist);
 router.patch("/waitlist/:id/cancel", leaveWaitlist);
+
+router.get("/loyalty", getClientLoyalty);
 
 router.get("/socket-token", getSocketToken);
 router.get("/notifications", listNotifications);

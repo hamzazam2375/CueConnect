@@ -53,8 +53,8 @@ export const getBookingPrice = ({ hourlyRate, duration, membership, dateKey, sta
     return { subtotal, discount, discountAmount: subtotal - total, total };
 };
 
-export const createClientBooking = async ({ tableId, date, startTime, duration, paymentAccountId, transactionId, paymentProof }) => {
-    const data = await postWithProof("/client/bookings", { tableId, date, startTime, duration, paymentAccountId, transactionId }, paymentProof);
+export const createClientBooking = async ({ tableId, date, startTime, duration, paymentAccountId, transactionId, paymentProof, loyaltyPoints = 0 }) => {
+    const data = await postWithProof("/client/bookings", { tableId, date, startTime, duration, paymentAccountId, transactionId, loyaltyPoints }, paymentProof);
     return data.booking;
 };
 
