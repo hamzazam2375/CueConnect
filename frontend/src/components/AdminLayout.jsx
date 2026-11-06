@@ -7,7 +7,8 @@ import Logo from "./Logo";
 const sidebarItems = [
     { key: "dashboard", label: "Dashboard",           icon: "grid",     href: "/admin/dashboard" },
     { key: "tables",    label: "Table Management",    icon: "table",    href: "/admin/tables" },
-    { key: "games",     label: "Games & Billing",     icon: "gamepad",  href: "/admin/games" },
+    { key: "games",     label: "Games",               icon: "gamepad",  href: "/admin/games" },
+    { key: "billing",   label: "Billing",             icon: "dollar",   href: "/admin/billing" },
     { key: "discounts", label: "Discounts & Loyalty",  icon: "tag",     href: "/admin/discounts" },
     { key: "bookings",  label: "Bookings & Events",   icon: "calendar", href: "/admin/bookings" },
     { key: "customers", label: "Customers",            icon: "users",   href: "/admin/customers" },
@@ -15,7 +16,7 @@ const sidebarItems = [
     { key: "settings",  label: "Settings",             icon: "settings", href: "/admin/settings" },
 ];
 
-const implementedKeys = ["dashboard", "tables"];
+const implementedKeys = ["dashboard", "tables", "games", "billing"];
 
 export function Icon({ name, className = "h-5 w-5" }) {
     const paths = {

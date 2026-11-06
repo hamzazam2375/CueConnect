@@ -8,7 +8,7 @@ const statusColors = {
     maintenance: { bg: "bg-red-500/10",     border: "border-red-500/20",     text: "text-red-400",     label: "Maintenance" },
 };
 
-const emptyForm = { name: "", tableType: "snooker", status: "available", pricePerHour: "", frameRate: "", centuryRate: "" };
+const emptyForm = { name: "", tableType: "snooker", status: "available", pricePerHour: "", frameRate: "", centuryRate: "", hourManual: false };
 
 // ── modal ──
 
@@ -58,18 +58,44 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
                         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500 mb-3">Pricing (Rs.)</p>
                         <div className="grid grid-cols-3 gap-3">
                             <div>
+                                <label htmlFor="price-century" className={labelClass}>Century /min</label>
+                                <input
+                                    id="price-century"
+                                    type="number"
+                                    min="0"
+                                    required
+                                    value={form.centuryRate}
+                                    onChange={(e) => {
+                                        const centuryRate = e.target.value;
+                                        setForm((f) => ({
+                                            ...f,
+                                            centuryRate,
+                                            pricePerHour: f.hourManual ? f.pricePerHour : (centuryRate === "" ? "" : Number(centuryRate) * 60)
+                                        }));
+                                    }}
+                                    placeholder="0"
+                                    className={inputClass}
+                                />
+                            </div>
+                            <div>
                                 <label htmlFor="price-hour" className={labelClass}>Per Hour</label>
-                                <input id="price-hour" type="number" min="0" required value={form.pricePerHour} onChange={update("pricePerHour")} placeholder="0" className={inputClass} />
+                                <input
+                                    id="price-hour"
+                                    type="number"
+                                    min="0"
+                                    required
+                                    value={form.pricePerHour}
+                                    onChange={(e) => setForm((f) => ({ ...f, pricePerHour: e.target.value, hourManual: true }))}
+                                    placeholder="0"
+                                    className={inputClass}
+                                />
                             </div>
                             <div>
                                 <label htmlFor="price-frame" className={labelClass}>Per Frame</label>
                                 <input id="price-frame" type="number" min="0" required value={form.frameRate} onChange={update("frameRate")} placeholder="0" className={inputClass} />
                             </div>
-                            <div>
-                                <label htmlFor="price-century" className={labelClass}>Century</label>
-                                <input id="price-century" type="number" min="0" required value={form.centuryRate} onChange={update("centuryRate")} placeholder="0" className={inputClass} />
-                            </div>
                         </div>
+                        <p className="mt-2 text-[11px] text-neutral-600">Hour rate defaults to century × 60. You can override it.</p>
                     </div>
 
                     <div className="flex items-center gap-3 pt-2">
@@ -141,16 +167,16 @@ function TableCard({ table, onEdit, onDelete, delay }) {
 
                 <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Century /min</p>
+                        <p className="mt-1 text-base font-black text-white">Rs. {table.centuryRate}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-3 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Per Hour</p>
                         <p className="mt-1 text-base font-black text-white">Rs. {table.pricePerHour}</p>
                     </div>
                     <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-3 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Per Frame</p>
                         <p className="mt-1 text-base font-black text-white">Rs. {table.frameRate}</p>
-                    </div>
-                    <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Century</p>
-                        <p className="mt-1 text-base font-black text-white">Rs. {table.centuryRate}</p>
                     </div>
                 </div>
 
@@ -218,6 +244,7 @@ export default function TableManagement() {
             pricePerHour: table.pricePerHour,
             frameRate: table.frameRate,
             centuryRate: table.centuryRate,
+            hourManual: true,
         });
         setError(null);
         setModalOpen(true);

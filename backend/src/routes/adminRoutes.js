@@ -5,11 +5,41 @@ import Booking from "../models/booking.js";
 import Game from "../models/game.js";
 import Income from "../models/income.js";
 import Expense from "../models/expense.js";
-import Payment from "../models/payment.js";
 import Event from "../models/event.js";
 import Waitlist from "../models/waitlist.js";
+import {
+    listCustomers,
+    listActiveGames,
+    listGameHistory,
+    getGame,
+    startGame,
+    stopGame
+} from "../controllers/adminGameController.js";
+import {
+    listBills,
+    getBill,
+    listBillDiscounts,
+    applyBillDiscount,
+    recordBillPayment,
+    downloadBillReceipt
+} from "../controllers/adminBillingController.js";
+import Bill from "../models/bill.js";
 
 const router = express.Router();
+
+router.get("/customers", protect, authorize("admin"), listCustomers);
+router.get("/games/active", protect, authorize("admin"), listActiveGames);
+router.get("/games/history", protect, authorize("admin"), listGameHistory);
+router.post("/games", protect, authorize("admin"), startGame);
+router.get("/games/:id", protect, authorize("admin"), getGame);
+router.patch("/games/:id/stop", protect, authorize("admin"), stopGame);
+
+router.get("/bills", protect, authorize("admin"), listBills);
+router.get("/bills/:id/discounts", protect, authorize("admin"), listBillDiscounts);
+router.get("/bills/:id/receipt", protect, authorize("admin"), downloadBillReceipt);
+router.get("/bills/:id", protect, authorize("admin"), getBill);
+router.patch("/bills/:id/discount", protect, authorize("admin"), applyBillDiscount);
+router.post("/bills/:id/payments", protect, authorize("admin"), recordBillPayment);
 
 // GET /api/admin/dashboard-stats
 router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => {
@@ -49,8 +79,7 @@ router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => 
         ]);
         const todayExpenses = todayExpenseResult[0]?.total || 0;
 
-        // unpaid bills
-        const unpaidBills = await Payment.countDocuments({ branchId, status: "pending" });
+        const unpaidBills = await Bill.countDocuments({ branchId, status: { $in: ["pending", "partial"] } });
 
         // waitlist count (people currently waiting)
         const waitlistCount = await Waitlist.countDocuments({ branchId, status: "waiting" });
@@ -147,8 +176,11 @@ router.post("/tables", protect, authorize("admin"), async (req, res) => {
     try {
         const { name, tableType, status, pricePerHour, frameRate, centuryRate } = req.body;
 
-        if (!name || !tableType || pricePerHour == null || frameRate == null || centuryRate == null) {
-            return res.status(400).json({ message: "Name, type, price per hour, frame rate, and century rate are required" });
+        const perMinute = Number(centuryRate);
+        const hourly = pricePerHour == null || pricePerHour === "" ? perMinute * 60 : Number(pricePerHour);
+
+        if (!name || !tableType || frameRate == null || centuryRate == null || Number.isNaN(perMinute) || Number.isNaN(hourly)) {
+            return res.status(400).json({ message: "Name, type, frame rate, and century rate are required" });
         }
 
         if (!["snooker", "billiard"].includes(tableType)) {
@@ -166,9 +198,9 @@ router.post("/tables", protect, authorize("admin"), async (req, res) => {
             name,
             tableType,
             status: status || "available",
-            pricePerHour,
+            pricePerHour: hourly,
             frameRate,
-            centuryRate
+            centuryRate: perMinute
         });
 
         res.status(201).json({ message: "Table created successfully", table });

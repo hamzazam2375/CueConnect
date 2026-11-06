@@ -34,6 +34,8 @@ const ClientEventRegister = lazy(() => import("./pages/ClientEventRegister"));
 const ClientHistory = lazy(() => import("./pages/ClientHistory"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const TableManagement = lazy(() => import("./pages/TableManagement"));
+const AdminGames = lazy(() => import("./pages/AdminGames"));
+const AdminBilling = lazy(() => import("./pages/AdminBilling"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 export default function App() {
@@ -74,7 +76,9 @@ export default function App() {
                     </Route>
                     <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                         <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                        <Route path="/admin/tables" element={<TableManagement/>} />
+                        <Route path="/admin/tables" element={<TableManagement />} />
+                        <Route path="/admin/games" element={<AdminGames />} />
+                        <Route path="/admin/billing" element={<AdminBilling />} />
                     </Route>
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route path="/admin/register" element={<AdminSignup />} />
