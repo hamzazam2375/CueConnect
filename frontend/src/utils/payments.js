@@ -9,11 +9,11 @@ export const MAX_PROOF_SIZE = 5 * 1024 * 1024;
 
 export const paymentMethodLabels = { jazzcash: "JazzCash", easypaisa: "Easypaisa", bank: "Bank transfer" };
 
-// posts fields plus the proof image as multipart form data
+// posts fields plus the proof image (if any) as multipart form data; empty fields are left out
 export const postWithProof = async (url, fields, paymentProof) => {
     const form = new FormData();
-    Object.entries(fields).forEach(([key, value]) => form.append(key, value));
-    form.append("paymentProof", paymentProof);
+    Object.entries(fields).forEach(([key, value]) => value !== undefined && value !== null && form.append(key, value));
+    if (paymentProof) form.append("paymentProof", paymentProof);
     // the multipart header stops axios from converting the form to JSON; the browser adds the boundary
     const { data } = await api.post(url, form, { headers: { "Content-Type": "multipart/form-data" } });
     return data;

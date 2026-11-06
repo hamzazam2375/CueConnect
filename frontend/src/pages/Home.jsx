@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import BranchSection from "../components/BranchSection";
@@ -5,6 +6,7 @@ import EventCard from "../components/EventCard";
 import FeatureCard from "../components/FeatureCard";
 import Footer from "../components/Footer";
 import branches from "../data/branches";
+import { fetchPublicEvents } from "../utils/clientEvents";
 
 const features = [
     {
@@ -29,12 +31,18 @@ const features = [
     }
 ];
 
-// collect all events from all branches with branch name attached
-const allEvents = branches.flatMap((branch) =>
-    branch.events.map((event) => ({ ...event, branchName: branch.name }))
-);
-
 export default function Home() {
+    const [events, setEvents] = useState(null);
+
+    useEffect(() => {
+        let active = true;
+        // the section shows its empty message if events can't be loaded
+        fetchPublicEvents()
+            .then((data) => active && setEvents(data))
+            .catch(() => active && setEvents([]));
+        return () => { active = false; };
+    }, []);
+
     return (
         <div className="bg-black min-h-screen">
             <Navbar />
@@ -56,9 +64,12 @@ export default function Home() {
                         </h2>
                     </div>
 
+                    {events && !events.length && (
+                        <p className="text-center text-gray-500">No upcoming events right now. New tournaments are announced here.</p>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {allEvents.map((event, i) => (
-                            <EventCard key={i} event={event} branchName={event.branchName} />
+                        {events?.map((event) => (
+                            <EventCard key={event.id} event={event} branchName={event.branchName.replace("GOODSHOT ", "")} />
                         ))}
                     </div>
                 </div>

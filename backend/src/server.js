@@ -10,6 +10,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import clientRoutes from "./routes/clientRoutes.js";
+import eventRoutes from "./routes/eventRoutes.js";
 import { initRealtime } from "./services/realtime.js";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/client", clientRoutes);
+app.use("/api/events", eventRoutes);
 
 // health checks
 app.get("/", (req, res) => {

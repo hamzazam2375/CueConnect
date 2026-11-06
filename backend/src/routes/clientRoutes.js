@@ -30,6 +30,14 @@ import {
     markAllNotificationsRead
 } from "../controllers/clientNotificationController.js";
 import { getClientLoyalty } from "../controllers/clientLoyaltyController.js";
+import {
+    listClientEvents,
+    getClientEvent,
+    registerForEvent,
+    listClientEventRegistrations,
+    cancelEventRegistration,
+    getEventRegistrationProof
+} from "../controllers/clientEventController.js";
 
 const router = express.Router();
 
@@ -58,6 +66,13 @@ router.post("/waitlist", joinWaitlist);
 router.patch("/waitlist/:id/cancel", leaveWaitlist);
 
 router.get("/loyalty", getClientLoyalty);
+
+router.get("/events", listClientEvents);
+router.get("/events/:id", getClientEvent);
+router.post("/events/:id/register", uploadPaymentProof, registerForEvent);
+router.get("/event-registrations", listClientEventRegistrations);
+router.patch("/event-registrations/:reference/cancel", cancelEventRegistration);
+router.get("/event-registrations/:reference/payment-proof", getEventRegistrationProof);
 
 router.get("/socket-token", getSocketToken);
 router.get("/notifications", listNotifications);

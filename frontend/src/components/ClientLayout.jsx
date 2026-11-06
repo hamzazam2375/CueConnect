@@ -14,7 +14,7 @@ const navigation = [
     { label: "My bookings", icon: "ticket", href: "/client/bookings", match: "/client/bookings" },
     { label: "My membership", icon: "crown", href: "/client/memberships/manage", match: "/client/memberships" },
     { label: "Loyalty points", icon: "star", href: "/client/loyalty", match: "/client/loyalty" },
-    { label: "Events", icon: "trophy", href: "/#events", external: true }
+    { label: "Events", icon: "trophy", href: "/client/events", match: "/client/events" }
 ];
 
 function Icon({ name, className = "h-5 w-5" }) {

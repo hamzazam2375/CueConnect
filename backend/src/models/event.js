@@ -46,6 +46,21 @@ const eventSchema = new mongoose.Schema(
             default: 0
         },
 
+        // e.g. "PKR 25,000" or "Trophy + PKR 10,000"
+        prize: {
+            type: String,
+            trim: true,
+            default: null
+        },
+
+        // registrations holding a spot (registered or confirmed); kept in step atomically
+        // so maxParticipants can't be overshot by simultaneous sign-ups
+        participantCount: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+
         status: {
             type: String,
             enum: ["upcoming", "ongoing", "completed", "cancelled"],

@@ -10,17 +10,14 @@ import tableImage from "../../assets/table.jpg";
 import { fetchClientBookings } from "../utils/clientBookings";
 import { fetchClientMemberships, findCurrentMembership } from "../utils/clientMemberships";
 import { fetchClientLoyalty } from "../utils/loyalty";
+import { fetchClientEvents } from "../utils/clientEvents";
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
-    { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/#events", accent: "amber" },
+    { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/client/events", accent: "amber" },
     { title: "Memberships", description: "Unlock discounts and perks", icon: "crown", href: "/client/memberships", accent: "violet" },
     { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
-
-const allEvents = branches
-    .flatMap((branch) => branch.events.map((event) => ({ ...event, branchName: branch.name })))
-    .sort((first, second) => new Date(first.date) - new Date(second.date));
 
 const availableTables = branches.reduce(
     (total, branch) => total + branch.tables.filter((table) => table.status === "available").length,
@@ -76,6 +73,7 @@ export default function ClientDashboard() {
     const [bookings, setBookings] = useState([]);
     const [memberships, setMemberships] = useState([]);
     const [points, setPoints] = useState(0);
+    const [events, setEvents] = useState(null);
     const currentMembership = findCurrentMembership(memberships);
     const membershipTitle = !currentMembership ? "Cue Club Basic" : currentMembership.status === "active" ? `${currentMembership.plan} member` : `${currentMembership.plan} awaiting verification`;
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
@@ -96,6 +94,10 @@ export default function ClientDashboard() {
         fetchClientLoyalty()
             .then((data) => active && setPoints(data.points))
             .catch(() => {});
+        // the events card shows its empty state if this fails
+        fetchClientEvents()
+            .then((data) => active && setEvents(data))
+            .catch(() => active && setEvents([]));
         return () => { active = false; };
     }, []);
 
@@ -201,11 +203,12 @@ export default function ClientDashboard() {
                             </article>
 
                             <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "440ms" }}>
-                                <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Coming up</p><h2 className="mt-1 text-xl font-bold">Club events</h2></div><a href="/#events" className="text-xs font-semibold text-neutral-500 transition-colors hover:text-red-400">View all</a></div>
+                                <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Coming up</p><h2 className="mt-1 text-xl font-bold">Club events</h2></div><Link to="/client/events" className="text-xs font-semibold text-neutral-500 transition-colors hover:text-red-400">View all</Link></div>
                                 <div className="mt-5 space-y-3">
-                                    {allEvents.slice(0, 3).map((event) => {
-                                        const date = new Date(`${event.date}T12:00:00`);
-                                        return <a href="/#events" key={`${event.branchName}-${event.title}`} className="group flex gap-3 rounded-xl border border-transparent p-2 transition-all hover:border-white/[0.06] hover:bg-white/[0.025]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-500/10 text-center"><span><span className="block text-[9px] font-bold uppercase tracking-wider text-red-400">{date.toLocaleString("en", { month: "short" })}</span><span className="block text-lg font-black leading-none">{date.getDate()}</span></span></span><span className="min-w-0 py-0.5"><span className="block truncate text-sm font-bold text-neutral-200 transition-colors group-hover:text-white">{event.title}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-neutral-500"><Icon name="pin" className="h-3 w-3" /> {event.branchName.replace("GOODSHOT ", "")}</span></span></a>;
+                                    {events && !events.length && <p className="rounded-xl border border-dashed border-white/[0.08] px-4 py-6 text-center text-xs text-neutral-600">No upcoming events yet. New tournaments will show up here.</p>}
+                                    {events?.slice(0, 3).map((event) => {
+                                        const date = new Date(event.date);
+                                        return <Link to={event.registrationOpen && !event.registration ? `/client/events/${event.id}` : "/client/events"} key={event.id} className="group flex gap-3 rounded-xl border border-transparent p-2 transition-all hover:border-white/[0.06] hover:bg-white/[0.025]"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-500/10 text-center"><span><span className="block text-[9px] font-bold uppercase tracking-wider text-red-400">{date.toLocaleString("en", { month: "short" })}</span><span className="block text-lg font-black leading-none">{date.getDate()}</span></span></span><span className="min-w-0 py-0.5"><span className="block truncate text-sm font-bold text-neutral-200 transition-colors group-hover:text-white">{event.title}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-neutral-500"><Icon name="pin" className="h-3 w-3" /> {event.branchName.replace("GOODSHOT ", "")}</span></span></Link>;
                                     })}
                                 </div>
                             </article>
