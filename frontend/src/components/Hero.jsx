@@ -1,5 +1,5 @@
 import Logo from "./Logo";
-import heroBg from "../../assets/table.jpg";
+import heroBg from "../../assets/table.webp";
 
 export default function Hero() {
     return (

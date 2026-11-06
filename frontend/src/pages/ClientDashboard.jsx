@@ -4,10 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import NotificationBell from "../components/NotificationBell";
-import branches from "../data/branches";
 import { logout } from "../store/authSlice";
-import tableImage from "../../assets/table.jpg";
-import { fetchClientBookings } from "../utils/clientBookings";
+import tableImage from "../../assets/table.webp";
+import { fetchBookingBranches, fetchClientBookings } from "../utils/clientBookings";
 import { fetchClientMemberships, findCurrentMembership } from "../utils/clientMemberships";
 import { fetchClientLoyalty } from "../utils/loyalty";
 import { fetchClientEvents } from "../utils/clientEvents";
@@ -19,10 +18,6 @@ const quickActions = [
     { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
 
-const availableTables = branches.reduce(
-    (total, branch) => total + branch.tables.filter((table) => table.status === "available").length,
-    0
-);
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -35,7 +30,6 @@ function Icon({ name, className = "h-5 w-5" }) {
         trophy: <><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" /><path d="M7 6H3v2a4 4 0 0 0 4 4M17 6h4v2a4 4 0 0 1-4 4" /></>,
         history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
         arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
-        bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
         pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
         logout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /></>,
         spark: <><path d="m12 3-1.2 4.8L6 9l4.8 1.2L12 15l1.2-4.8L18 9l-4.8-1.2z" /><path d="m5 15-.6 2.4L2 18l2.4.6L5 21l.6-2.4L8 18l-2.4-.6z" /></>
@@ -74,6 +68,8 @@ export default function ClientDashboard() {
     const [memberships, setMemberships] = useState([]);
     const [points, setPoints] = useState(0);
     const [events, setEvents] = useState(null);
+    const [branches, setBranches] = useState([]);
+    const availableTables = branches.reduce((total, branch) => total + branch.availableCount, 0);
     const currentMembership = findCurrentMembership(memberships);
     const membershipTitle = !currentMembership ? "Cue Club Basic" : currentMembership.status === "active" ? `${currentMembership.plan} member` : `${currentMembership.plan} awaiting verification`;
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
@@ -93,6 +89,10 @@ export default function ClientDashboard() {
             .catch(() => {});
         fetchClientLoyalty()
             .then((data) => active && setPoints(data.points))
+            .catch(() => {});
+        // the tables card shows 0 if this fails
+        fetchBookingBranches()
+            .then((data) => active && setBranches(data))
             .catch(() => {});
         // the events card shows its empty state if this fails
         fetchClientEvents()
@@ -129,10 +129,6 @@ export default function ClientDashboard() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <button type="button" className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white" aria-label="Notifications">
-                                <Icon name="bell" className="h-[18px] w-[18px]" />
-                                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-black" />
-                            </button>
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
                             <Link to="/client/profile" className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400" aria-label="Profile settings"><Icon name="user" className="h-[18px] w-[18px]" /></Link>
                             <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
@@ -162,7 +158,7 @@ export default function ClientDashboard() {
                         <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
                         <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} off bookings` : "Play to earn points"} delay="140ms" />
                         <StatCard icon="crown" label="Membership" value={!currentMembership ? "Basic" : currentMembership.status === "active" ? currentMembership.plan : "Pending"} detail={!currentMembership ? "Explore premium plans" : currentMembership.status === "active" ? `Expires ${new Date(currentMembership.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : `${currentMembership.plan} awaiting verification`} delay="200ms" />
-                        <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} branches`} delay="260ms" />
+                        <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} ${branches.length === 1 ? "branch" : "branches"}`} delay="260ms" />
                     </section>
 
                     <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">

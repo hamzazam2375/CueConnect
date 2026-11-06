@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Logo from "./Logo";
 import { SidebarContext } from "./sidebarContext";
 import NotificationsProvider from "./NotificationsProvider";
+import PageLoader from "./PageLoader";
 import { logout } from "../store/authSlice";
 
 // `match` is the path prefix that keeps an item highlighted on its sub-pages
@@ -96,7 +97,9 @@ export default function ClientLayout() {
     return (
         <SidebarContext.Provider value={{ isOpen, openSidebar: () => setIsOpen(true) }}>
             <NotificationsProvider>
-                <Outlet />
+                <Suspense fallback={<PageLoader />}>
+                    <Outlet />
+                </Suspense>
             </NotificationsProvider>
 
             <div
