@@ -16,7 +16,7 @@ const sidebarItems = [
     { key: "settings",  label: "Settings",             icon: "settings", href: "/admin/settings" },
 ];
 
-const implementedKeys = ["dashboard", "tables", "games", "billing"];
+const implementedKeys = ["dashboard", "tables", "games", "billing", "customers"];
 
 export function Icon({ name, className = "h-5 w-5" }) {
     const paths = {

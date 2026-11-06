@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout, { Icon } from "../components/AdminLayout";
+import StartGameModal, { PersonFields, ModalShell, inputClass, labelClass } from "../components/StartGameModal";
 import api from "../services/api";
 
-const inputClass = "admin-filter-field w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 focus:bg-white/[0.06] transition-all duration-300";
-const labelClass = "block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5";
-
-const emptyStart = { playerMode: "registered", playerUserId: "", playerName: "", tableId: "", type: "frame", frameType: "single" };
 const emptyStop = { payerMode: "same", payerUserId: "", payerName: "" };
 const emptyFilters = { from: "", to: "", tableId: "", customerId: "", type: "", paymentStatus: "" };
 
@@ -59,61 +56,6 @@ function DateFilter({ value, onChange, label }) {
     );
 }
 
-function PersonFields({ customers, mode, onMode, userId, onUserId, name, onName, label }) {
-    const selected = customers.find((customer) => customer.id === userId);
-
-    return (
-        <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-                {["registered", "walkin"].map((value) => (
-                    <button
-                        key={value}
-                        type="button"
-                        onClick={() => onMode(value)}
-                        className={`rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wider ${mode === value ? "border-red-500/40 bg-red-500/10 text-red-400" : "border-white/[0.08] text-neutral-500 hover:text-white"}`}
-                    >
-                        {value === "registered" ? "Registered" : "Walk-in"}
-                    </button>
-                ))}
-            </div>
-            {mode === "registered" ? (
-                <>
-                    <div>
-                        <label className={labelClass}>{label}</label>
-                        <select value={userId} onChange={(e) => onUserId(e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
-                            <option value="" className="bg-neutral-900">Select customer</option>
-                            {customers.map((customer) => (
-                                <option key={customer.id} value={customer.id} className="bg-neutral-900">{customer.name} · {customer.customerId}</option>
-                            ))}
-                        </select>
-                    </div>
-                    {selected && <p className="text-xs text-neutral-500">Customer ID: <span className="font-bold text-neutral-300">{selected.customerId}</span></p>}
-                </>
-            ) : (
-                <div>
-                    <label className={labelClass}>{label} name</label>
-                    <input value={name} onChange={(e) => onName(e.target.value)} placeholder="Enter name" className={inputClass} />
-                </div>
-            )}
-        </div>
-    );
-}
-
-function ModalShell({ title, onClose, children }) {
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/10 p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white">{title}</h2>
-                    <button type="button" onClick={onClose} className="text-neutral-500 hover:text-white p-1" aria-label="Close"><Icon name="x" className="h-5 w-5" /></button>
-                </div>
-                {children}
-            </div>
-        </div>
-    );
-}
-
 export default function AdminGames() {
     const [now, setNow] = useState(Date.now());
     const [activeGames, setActiveGames] = useState([]);
@@ -126,8 +68,7 @@ export default function AdminGames() {
     const [filters, setFilters] = useState(emptyFilters);
 
     const [startOpen, setStartOpen] = useState(false);
-    const [startForm, setStartForm] = useState(emptyStart);
-    const [isStarting, setIsStarting] = useState(false);
+    const [startPrefill, setStartPrefill] = useState({});
 
     const [stopTarget, setStopTarget] = useState(null);
     const [stopForm, setStopForm] = useState(emptyStop);
@@ -136,8 +77,7 @@ export default function AdminGames() {
 
     const [detail, setDetail] = useState(null);
 
-    const occupiedTableIds = useMemo(() => new Set(activeGames.map((game) => game.table?.id)), [activeGames]);
-    const availableTables = tables.filter((table) => table.status !== "maintenance" && (startForm.tableId === table._id || !occupiedTableIds.has(table._id)));
+    const registeredCustomers = customers.filter((customer) => customer.isActive !== false);
 
     const groupedHistory = useMemo(() => {
         const groups = new Map();
@@ -189,30 +129,9 @@ export default function AdminGames() {
     }, [success]);
 
     const openStart = (prefill = {}) => {
-        setStartForm({ ...emptyStart, ...prefill });
+        setStartPrefill(prefill);
         setStartOpen(true);
         setError(null);
-    };
-
-    const submitStart = async () => {
-        setIsStarting(true);
-        setError(null);
-        try {
-            await api.post("/admin/games", {
-                tableId: startForm.tableId,
-                type: startForm.type,
-                frameType: startForm.type === "frame" ? startForm.frameType : undefined,
-                playerUserId: startForm.playerMode === "registered" ? startForm.playerUserId : undefined,
-                playerName: startForm.playerMode === "walkin" ? startForm.playerName.trim() : undefined
-            });
-            setSuccess("Game started");
-            setStartOpen(false);
-            await loadCore();
-        } catch (err) {
-            setError(err.response?.data?.message || "Game could not be started");
-        } finally {
-            setIsStarting(false);
-        }
     };
 
     const openStop = (game, restart = false) => {
@@ -269,55 +188,15 @@ export default function AdminGames() {
 
     return (
         <AdminLayout title="Games">
-            {startOpen && (
-                <ModalShell title="Start Game" onClose={() => setStartOpen(false)}>
-                    <form onSubmit={(e) => { e.preventDefault(); submitStart(); }} className="space-y-4">
-                        <PersonFields
-                            customers={customers}
-                            mode={startForm.playerMode}
-                            onMode={(playerMode) => setStartForm((f) => ({ ...f, playerMode, playerUserId: "", playerName: "" }))}
-                            userId={startForm.playerUserId}
-                            onUserId={(playerUserId) => setStartForm((f) => ({ ...f, playerUserId }))}
-                            name={startForm.playerName}
-                            onName={(playerName) => setStartForm((f) => ({ ...f, playerName }))}
-                            label="Player"
-                        />
-                        <div>
-                            <label className={labelClass}>Table</label>
-                            <select required value={startForm.tableId} onChange={(e) => setStartForm((f) => ({ ...f, tableId: e.target.value }))} className={`${inputClass} appearance-none cursor-pointer`}>
-                                <option value="" className="bg-neutral-900">Select table</option>
-                                {availableTables.map((table) => (
-                                    <option key={table._id} value={table._id} className="bg-neutral-900">{table.name} · {table.tableType}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelClass}>Game type</label>
-                                <select value={startForm.type} onChange={(e) => setStartForm((f) => ({ ...f, type: e.target.value }))} className={`${inputClass} appearance-none cursor-pointer`}>
-                                    <option value="frame" className="bg-neutral-900">Frame</option>
-                                    <option value="century" className="bg-neutral-900">Century</option>
-                                </select>
-                            </div>
-                            {startForm.type === "frame" && (
-                                <div>
-                                    <label className={labelClass}>Frame type</label>
-                                    <select value={startForm.frameType} onChange={(e) => setStartForm((f) => ({ ...f, frameType: e.target.value }))} className={`${inputClass} appearance-none cursor-pointer`}>
-                                        <option value="single" className="bg-neutral-900">Single</option>
-                                        <option value="double" className="bg-neutral-900">Double</option>
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-                        <p className="text-xs text-neutral-600">Start time is recorded from the server when you confirm.</p>
-                        {error && startOpen && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>}
-                        <div className="flex gap-3 pt-1">
-                            <button type="button" onClick={() => setStartOpen(false)} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] text-sm font-semibold text-neutral-300">Cancel</button>
-                            <button type="submit" disabled={isStarting} className="flex-1 py-2.5 rounded-xl bg-red-600 text-sm font-bold hover:bg-red-500 disabled:bg-red-900">{isStarting ? "Starting..." : "Start game"}</button>
-                        </div>
-                    </form>
-                </ModalShell>
-            )}
+            <StartGameModal
+                open={startOpen}
+                onClose={() => setStartOpen(false)}
+                prefill={startPrefill}
+                onStarted={async () => {
+                    setSuccess("Game started");
+                    await loadCore();
+                }}
+            />
 
             {stopTarget && (
                 <ModalShell title={restartAfterStop ? "Stop & start next game" : "Stop game"} onClose={() => setStopTarget(null)}>
@@ -333,7 +212,7 @@ export default function AdminGames() {
                         {stopForm.payerMode === "same" && <p className="text-xs text-neutral-500">Charges go to {stopTarget.playerName}{stopTarget.customerId ? ` (${stopTarget.customerId})` : ""}.</p>}
                         {stopForm.payerMode === "registered" && (
                             <PersonFields
-                                customers={customers}
+                                customers={registeredCustomers}
                                 mode="registered"
                                 onMode={() => {}}
                                 userId={stopForm.payerUserId}

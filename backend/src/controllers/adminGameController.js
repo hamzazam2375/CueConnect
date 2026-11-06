@@ -4,10 +4,9 @@ import Bill from "../models/bill.js";
 import Table from "../models/table.js";
 import User from "../models/user.js";
 import { OPEN_BILL_STATUSES, createBillReference, reapplyDiscountBreakdown, roundMoney } from "../utils/billMath.js";
+import { displayCustomerCode } from "../utils/customerCode.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
-
-const customerCode = (id) => (id ? `CC${String(id).slice(-6).toUpperCase()}` : null);
 
 const playerLabel = (user) => user ? `${user.firstName} ${user.lastName}`.trim() : "";
 
@@ -20,7 +19,7 @@ const serializeGame = (game) => {
     return {
         id: String(game._id),
         playerName: game.playerName || playerLabel(player),
-        customerId: player ? customerCode(player._id) : null,
+        customerId: player ? displayCustomerCode(player) : null,
         customer: player ? {
             id: String(player._id),
             firstName: player.firstName,
@@ -46,7 +45,7 @@ const serializeGame = (game) => {
         totalAmount: game.totalAmount,
         finalAmount: game.finalAmount,
         payerName: game.payer,
-        payerCustomerId: payerUser ? customerCode(payerUser._id) : null,
+        payerCustomerId: payerUser ? displayCustomerCode(payerUser) : null,
         payerUser: payerUser ? {
             id: String(payerUser._id),
             firstName: payerUser.firstName,
@@ -66,8 +65,8 @@ const serializeGame = (game) => {
 
 const populateGame = (query) => query
     .populate("table", "name tableType status pricePerHour frameRate centuryRate")
-    .populate("user", "firstName lastName email phone")
-    .populate("payerUser", "firstName lastName email phone")
+    .populate("user", "firstName lastName email phone customerCode")
+    .populate("payerUser", "firstName lastName email phone customerCode")
     .populate("bill", "payerName totalAmount status games");
 
 const calculateCharges = (game, table, endTime) => {
@@ -120,30 +119,6 @@ const findOrCreateBill = async ({ branchId, payerUser, payerName, amount, gameId
     reapplyDiscountBreakdown(bill);
     await bill.save();
     return bill;
-};
-
-export const listCustomers = async (req, res) => {
-    try {
-        const customers = await User.find({ role: "client" })
-            .select("firstName lastName email phone")
-            .sort({ firstName: 1, lastName: 1 })
-            .lean();
-
-        res.status(200).json({
-            customers: customers.map((customer) => ({
-                id: String(customer._id),
-                customerId: customerCode(customer._id),
-                firstName: customer.firstName,
-                lastName: customer.lastName,
-                name: `${customer.firstName} ${customer.lastName}`.trim(),
-                email: customer.email,
-                phone: customer.phone || ""
-            }))
-        });
-    } catch (error) {
-        console.error("List customers error:", error.message);
-        res.status(500).json({ message: "Server error" });
-    }
 };
 
 export const listActiveGames = async (req, res) => {
@@ -235,6 +210,9 @@ export const startGame = async (req, res) => {
             if (!player) {
                 return res.status(404).json({ message: "Registered customer not found" });
             }
+            if (player.isActive === false) {
+                return res.status(400).json({ message: "This customer account is inactive" });
+            }
         }
 
         const name = player ? playerLabel(player) : String(playerName || "").trim();
@@ -288,6 +266,9 @@ export const stopGame = async (req, res) => {
             payerUser = await User.findOne({ _id: payerUserId, role: "client" });
             if (!payerUser) {
                 return res.status(404).json({ message: "Registered payer not found" });
+            }
+            if (payerUser.isActive === false) {
+                return res.status(400).json({ message: "This customer account is inactive" });
             }
         }
 

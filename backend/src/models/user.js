@@ -39,6 +39,19 @@ const userSchema = new mongoose.Schema(
             default: "client"
         },
 
+        customerCode: {
+            type: String,
+            unique: true,
+            sparse: true,
+            uppercase: true,
+            trim: true
+        },
+
+        isActive: {
+            type: Boolean,
+            default: true
+        },
+
         // which branch this admin belongs to (null for clients)
         branchId: {
             type: mongoose.Schema.Types.ObjectId,
