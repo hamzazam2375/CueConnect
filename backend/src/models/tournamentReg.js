@@ -27,11 +27,6 @@ const tournamentRegSchema = new mongoose.Schema(
             unique: true
         },
 
-        isMember: {
-            type: Boolean,
-            default: false
-        },
-
         feePaid: {
             type: Number,
             required: true
@@ -46,7 +41,7 @@ const tournamentRegSchema = new mongoose.Schema(
             default: "registered"
         },
 
-        // payment details for paid events, same flow as bookings and memberships
+        // payment details for paid events, same flow as bookings
         paymentAccount: {
             method: { type: String, default: null },
             provider: { type: String, default: null },

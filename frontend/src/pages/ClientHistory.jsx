@@ -14,7 +14,6 @@ const tabs = [["activity", "Activity"], ["games", "Games"], ["payments", "Paymen
 const kindStyles = {
     booking: { icon: "calendar", className: "bg-red-500/10 text-red-400" },
     game: { icon: "cue", className: "bg-emerald-500/10 text-emerald-400" },
-    membership: { icon: "crown", className: "bg-violet-500/10 text-violet-300" },
     event: { icon: "trophy", className: "bg-amber-500/10 text-amber-300" },
     loyalty: { icon: "star", className: "bg-blue-500/10 text-blue-300" }
 };
@@ -62,7 +61,7 @@ function Empty({ title, text }) {
 }
 
 function ActivityList({ activity }) {
-    if (!activity.length) return <Empty title="Nothing here yet" text="Your bookings, games, memberships, events, and points will appear here." />;
+    if (!activity.length) return <Empty title="Nothing here yet" text="Your bookings, games, events, and points will appear here." />;
     return (
         <ul className="divide-y divide-white/[0.06]">
             {activity.map((item) => {
@@ -89,7 +88,7 @@ function GamesList({ games }) {
 }
 
 function PaymentsList({ payments }) {
-    if (!payments.length) return <Empty title="No payments yet" text="Advances, membership fees, entry fees, and payments at the club will be listed here." />;
+    if (!payments.length) return <Empty title="No payments yet" text="Booking advances, entry fees, and payments at the club will be listed here." />;
     return (
         <ul className="divide-y divide-white/[0.06]">
             {payments.map((payment) => {
@@ -133,7 +132,7 @@ export default function ClientHistory() {
                     <Stat index={2} icon="calendar" label="Bookings" value={summary.bookings} detail={`${summary.completedBookings} completed`} />
                     <Stat index={3} icon="trophy" label="Events joined" value={summary.eventsJoined} detail="Confirmed spots" />
                     <Stat index={4} icon="star" label="Loyalty points" value={summary.loyaltyPoints.toLocaleString()} detail={`Worth ${formatPkr(summary.loyaltyPoints)}`} />
-                    <Stat index={5} icon="crown" label="Membership" value={summary.membership?.plan || "Basic"} detail={summary.membership ? `Until ${formatDate(summary.membership.expiryDate)}` : `Member since ${formatDate(summary.memberSince, { month: "short", year: "numeric" })}`} />
+                    <Stat index={5} icon="clock" label="With us since" value={formatDate(summary.memberSince, { month: "short", year: "numeric" })} detail="CueConnect account" />
                 </section>
                 <div className="dashboard-rise mt-8 inline-flex rounded-2xl border border-white/[0.08] bg-neutral-950/80 p-1.5" role="tablist" aria-label="History views" style={{ animationDelay: "380ms" }}>{tabs.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setSearchParams(value === "activity" ? {} : { tab: value }, { replace: true })} className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all ${tab === value ? "bg-red-600 text-white shadow-lg shadow-red-950/40" : "text-neutral-500 hover:bg-white/[0.05] hover:text-white"}`}>{label}</button>)}</div>
                 <section className="dashboard-rise mt-4 rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "420ms" }}>
@@ -143,5 +142,5 @@ export default function ClientHistory() {
         );
     }
 
-    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><Link to="/client/profile" className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{initials}</Link></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12"><Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link><section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your record</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My history.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Every booking, game, payment, membership, and point in one place.</p></section>{content}</main></div>;
+    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><Link to="/client/profile" className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{initials}</Link></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12"><Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link><section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your record</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My history.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Every booking, game, payment, event, and point in one place.</p></section>{content}</main></div>;
 }

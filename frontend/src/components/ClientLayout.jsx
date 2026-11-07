@@ -13,7 +13,6 @@ const navigation = [
     { label: "Profile", icon: "user", href: "/client/profile", match: "/client/profile" },
     { label: "Book a table", icon: "calendar", href: "/client/book", match: "/client/book" },
     { label: "My bookings", icon: "ticket", href: "/client/bookings", match: "/client/bookings" },
-    { label: "My membership", icon: "crown", href: "/client/memberships/manage", match: "/client/memberships" },
     { label: "Loyalty points", icon: "star", href: "/client/loyalty", match: "/client/loyalty" },
     { label: "Events", icon: "trophy", href: "/client/events", match: "/client/events" },
     { label: "My history", icon: "history", href: "/client/history", match: "/client/history" }

@@ -61,11 +61,10 @@ function EventAction({ event }) {
     if (!event.registrationOpen) {
         return <span className="inline-flex flex-1 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-xs font-bold text-neutral-600">{event.spotsLeft === 0 ? "Fully booked" : "Registration closed"}</span>;
     }
-    return <Link to={`/client/events/${event.id}`} className="group inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-xs font-bold transition-colors hover:bg-red-500">{event.price > 0 ? "Register" : "Join for free"} <Icon name="arrow" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Link>;
+    return <Link to={`/client/events/${event.id}`} className="group inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-xs font-bold transition-colors hover:bg-red-500">{event.registrationFee > 0 ? "Register" : "Join for free"} <Icon name="arrow" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></Link>;
 }
 
 function EventCard({ event, index }) {
-    const discounted = event.isMember && event.price < event.registrationFee;
     return (
         <article className="dashboard-rise dashboard-card flex flex-col rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6" style={{ animationDelay: `${120 + index * 55}ms` }}>
             <div className="flex items-start justify-between gap-3"><TypeBadge type={event.type} />{event.spotsLeft !== null && event.registrationOpen && <span className={`text-[10px] font-bold ${event.spotsLeft <= 3 ? "text-amber-400" : "text-neutral-500"}`}>{event.spotsLeft} {event.spotsLeft === 1 ? "spot" : "spots"} left</span>}</div>
@@ -78,7 +77,7 @@ function EventCard({ event, index }) {
             </div>
             <div className="mt-4 flex items-end justify-between gap-3">
                 <div>{event.prize && <p className="flex items-center gap-1.5 text-xs font-bold text-amber-300"><Icon name="medal" className="h-4 w-4" />{event.prize}</p>}</div>
-                <div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Entry</p><p className="mt-0.5 text-lg font-black text-white">{formatFee(event.price)}</p>{discounted ? <p className="text-[10px] font-semibold text-emerald-400">Member price · was {formatFee(event.registrationFee)}</p> : event.memberFee !== null && event.memberFee < event.registrationFee && <p className="text-[10px] text-neutral-600">Members {formatFee(event.memberFee)}</p>}</div>
+                <div className="text-right"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Entry</p><p className="mt-0.5 text-lg font-black text-white">{formatFee(event.registrationFee)}</p></div>
             </div>
             <div className="mt-auto flex pt-5"><EventAction event={event} /></div>
         </article>
@@ -168,7 +167,7 @@ function RegistrationsView() {
                                 <div className="flex flex-wrap items-start justify-between gap-3"><TypeBadge type={event?.type} /><StatusBadge status={registration.status} /></div>
                                 <h2 className="mt-4 text-xl font-black">{event?.title || "Event removed"}</h2>
                                 {event && <p className="mt-1 text-xs text-neutral-500">{event.branchName.replace("GOODSHOT ", "")} · {formatEventDate(event.date)} · {formatEventTime(event.date)}</p>}
-                                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/[0.07] pt-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Reference</p><p className="mt-1 truncate text-xs font-bold text-neutral-400">{registration.reference}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Entry fee</p><p className="mt-1 text-xs font-bold text-neutral-400">{formatFee(registration.feePaid)}{registration.isMember && registration.feePaid > 0 ? " · member price" : ""}</p></div></div>
+                                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/[0.07] pt-4"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Reference</p><p className="mt-1 truncate text-xs font-bold text-neutral-400">{registration.reference}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-700">Entry fee</p><p className="mt-1 text-xs font-bold text-neutral-400">{formatFee(registration.feePaid)}</p></div></div>
                                 {registration.status === "rejected" && registration.rejectionReason && <p className="mt-4 rounded-xl border border-red-500/10 bg-red-500/[0.05] px-4 py-3 text-xs leading-relaxed text-neutral-500"><span className="font-bold text-red-400/80">Reason from the club: </span>{registration.rejectionReason}</p>}
                             </div>
                             <div className="flex border-t border-white/[0.07]"><button type="button" onClick={() => setSelected(registration)} className="flex flex-1 items-center justify-center gap-2 px-4 py-3 text-xs font-bold text-neutral-400 transition-colors hover:bg-white/[0.04] hover:text-white">View details <Icon name="arrow" className="h-3.5 w-3.5" /></button>{registration.canCancel && <button type="button" onClick={() => setCancelling(registration)} className="border-l border-white/[0.07] px-5 py-3 text-xs font-bold text-red-400 transition-colors hover:bg-red-500/10">Cancel</button>}</div>

@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Bill from "../models/bill.js";
 import Game from "../models/game.js";
 import Payment from "../models/payment.js";
-import Membership from "../models/membership.js";
 import Discount from "../models/discount.js";
 import Loyalty from "../models/loyalty.js";
 import { customerCode, reapplyDiscountBreakdown, roundMoney, syncBillTotals } from "../utils/billMath.js";
@@ -153,23 +152,14 @@ export const listBillDiscounts = async (req, res) => {
         if (bill.status === "paid") return res.status(400).json({ message: "Paid bills cannot receive new discounts" });
         if (!bill.payerUser) return res.status(200).json({ discounts: [] });
 
-        const now = new Date();
         const today = weekdayName();
-        const [membership, discounts, loyalty] = await Promise.all([
-            Membership.findOne({ branchId: req.user.branchId, user: bill.payerUser, status: "active", expiryDate: { $gte: now } }),
+        // a customer has one loyalty balance across all branches
+        const [discounts, loyalty] = await Promise.all([
             Discount.find({ branchId: req.user.branchId, isActive: true }),
-            Loyalty.findOne({ branchId: req.user.branchId, user: bill.payerUser })
+            Loyalty.findOne({ user: bill.payerUser })
         ]);
 
         const eligible = [];
-        if (membership) {
-            eligible.push({
-                type: "membership",
-                key: `membership:${membership.plan}`,
-                name: `${membership.plan} membership`,
-                percent: membership.discount
-            });
-        }
 
         discounts.forEach((discount) => {
             if (discount.type === "weekly" && !(discount.applicableDays || []).map((day) => day.toLowerCase()).includes(today)) return;

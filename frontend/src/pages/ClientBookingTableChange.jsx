@@ -5,7 +5,7 @@ import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
-import { changeClientBookingTable, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, getBookingPrice, hasSlotStarted, isTableFree } from "../utils/clientBookings";
+import { changeClientBookingTable, fetchBranchAvailability, fetchBranchTables, fetchClientBooking, getApiError, hasSlotStarted, isTableFree } from "../utils/clientBookings";
 
 function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -66,12 +66,12 @@ export default function ClientBookingTableChange() {
         let active = true;
         fetchClientBooking(reference)
             .then(async (booking) => {
-                const [{ branch, tables, membership }, busy] = await Promise.all([
+                const [{ branch, tables }, busy] = await Promise.all([
                     fetchBranchTables(booking.branchId),
                     fetchBranchAvailability(booking.branchId, booking.date, reference)
                 ]);
                 if (!active) return;
-                setData({ booking, branch, tables, membership, busy });
+                setData({ booking, branch, tables, busy });
                 setSelectedId(booking.tableId);
             })
             .catch((loadFailure) => {
@@ -103,7 +103,8 @@ export default function ClientBookingTableChange() {
         && isTableFree(busy, tableId, booking.startTime, booking.endTime);
     const selectedTable = tables.find((table) => table.id === selectedId);
     const selectionChanged = selectedId !== booking.tableId;
-    const totalFor = (table) => getBookingPrice({ hourlyRate: table.pricePerHour, duration: booking.duration, membership: data.membership, dateKey: booking.date, startTime: booking.startTime }).total;
+    // loyalty points already spent on the booking stay applied
+    const totalFor = (table) => Math.max(table.pricePerHour * booking.duration - (booking.loyaltyDiscount || 0), 0);
     const newTotal = selectedTable ? totalFor(selectedTable) : booking.total;
 
     const saveTable = async () => {

@@ -7,14 +7,13 @@ import NotificationBell from "../components/NotificationBell";
 import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.webp";
 import { fetchBookingBranches, fetchClientBookings } from "../utils/clientBookings";
-import { fetchClientMemberships, findCurrentMembership } from "../utils/clientMemberships";
-import { fetchClientLoyalty } from "../utils/loyalty";
+import { POINTS_PER_GAME, fetchClientLoyalty } from "../utils/loyalty";
 import { fetchClientEvents } from "../utils/clientEvents";
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
     { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/client/events", accent: "amber" },
-    { title: "Memberships", description: "Unlock discounts and perks", icon: "crown", href: "/client/memberships", accent: "violet" },
+    { title: "Loyalty points", description: "Earn on every game you play", icon: "star", href: "/client/loyalty", accent: "violet" },
     { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
 
@@ -65,13 +64,10 @@ export default function ClientDashboard() {
     const navigate = useNavigate();
     const { user, isLoading, error } = useSelector((state) => state.auth);
     const [bookings, setBookings] = useState([]);
-    const [memberships, setMemberships] = useState([]);
     const [points, setPoints] = useState(0);
     const [events, setEvents] = useState(null);
     const [branches, setBranches] = useState([]);
     const availableTables = branches.reduce((total, branch) => total + branch.availableCount, 0);
-    const currentMembership = findCurrentMembership(memberships);
-    const membershipTitle = !currentMembership ? "Cue Club Basic" : currentMembership.status === "active" ? `${currentMembership.plan} member` : `${currentMembership.plan} awaiting verification`;
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -82,10 +78,6 @@ export default function ClientDashboard() {
         // the stat card simply shows 0 if bookings can't be loaded
         fetchClientBookings()
             .then((data) => active && setBookings(data))
-            .catch(() => {});
-        // the membership cards fall back to the basic tier if this fails
-        fetchClientMemberships()
-            .then((data) => active && setMemberships(data))
             .catch(() => {});
         fetchClientLoyalty()
             .then((data) => active && setPoints(data.points))
@@ -157,7 +149,7 @@ export default function ClientDashboard() {
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
                         <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
                         <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} off bookings` : "Play to earn points"} delay="140ms" />
-                        <StatCard icon="crown" label="Membership" value={!currentMembership ? "Basic" : currentMembership.status === "active" ? currentMembership.plan : "Pending"} detail={!currentMembership ? "Explore premium plans" : currentMembership.status === "active" ? `Expires ${new Date(currentMembership.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : `${currentMembership.plan} awaiting verification`} delay="200ms" />
+                        <StatCard icon="trophy" label="Upcoming events" value={events?.length ?? 0} detail="Tournaments and club nights" delay="200ms" />
                         <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} ${branches.length === 1 ? "branch" : "branches"}`} delay="260ms" />
                     </section>
 
@@ -193,9 +185,9 @@ export default function ClientDashboard() {
 
                         <div className="space-y-6">
                             <article className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "360ms" }}>
-                                <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Your status</p><h2 className="mt-1 text-xl font-bold">{membershipTitle}</h2>{currentMembership?.status === "pending" && <p className="mt-1 text-[10px] text-amber-400">Ref: {currentMembership.reference}</p>}</div><span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-neutral-700 to-neutral-900 text-neutral-300"><Icon name="crown" /></span></div>
-                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">1 point for every PKR 100 you pay</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
-                                <Link to={memberships.length ? "/client/memberships/manage" : "/client/memberships"} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">{memberships.length ? "Manage memberships" : "Explore membership plans"} <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
+                                <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Rewards</p><h2 className="mt-1 text-xl font-bold">Loyalty points</h2></div><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500/10 text-amber-400"><Icon name="star" /></span></div>
+                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">{POINTS_PER_GAME} points for every game you play</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
+                                <Link to="/client/history" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">View my history <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
                             </article>
 
                             <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "440ms" }}>

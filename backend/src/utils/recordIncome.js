@@ -35,7 +35,7 @@ export const sourceTypeFromRecord = (income) => {
 export const collectedIncomeMatch = (branchId, start, end) => ({
     branchId,
     date: { $gte: start, $lte: end },
-    category: { $nin: ["membership", "booking"] },
+    category: { $ne: "booking" },
     sourceType: { $nin: ["booking"] },
     status: { $ne: "refunded" }
 });

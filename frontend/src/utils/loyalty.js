@@ -1,7 +1,7 @@
 import api from "../services/api";
 
 // Keep in sync with backend/src/services/loyalty.js.
-export const PKR_PER_POINT_EARNED = 100;
+export const POINTS_PER_GAME = 10;
 export const POINT_VALUE = 1;
 export const MAX_REDEEM_RATE = 0.2;
 

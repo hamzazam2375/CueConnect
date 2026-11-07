@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const discountItemSchema = new mongoose.Schema({
-    type: { type: String, enum: ["membership", "loyalty", "hourly", "weekly"], required: true },
+    type: { type: String, enum: ["loyalty", "hourly", "weekly"], required: true },
     name: { type: String, required: true },
     percent: { type: Number, required: true },
     amount: { type: Number, required: true }

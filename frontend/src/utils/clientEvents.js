@@ -7,13 +7,13 @@ export const fetchPublicEvents = async () => {
     return data.events;
 };
 
-// same list with this client's `price`, `isMember`, and `registration` on each event
+// same list with this client's `registration` on each event
 export const fetchClientEvents = async () => {
     const { data } = await api.get("/client/events");
     return data.events;
 };
 
-// adds `paymentAccounts` and `memberPlan`
+// adds `paymentAccounts` and this client's `registration`
 export const fetchClientEvent = async (eventId) => {
     const { data } = await api.get(`/client/events/${encodeURIComponent(eventId)}`);
     return data.event;

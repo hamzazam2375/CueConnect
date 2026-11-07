@@ -5,7 +5,7 @@ const footerLinks = [
     { label: "Home", href: "#home" },
     { label: "Tables", href: "#branches" },
     { label: "Events", href: "#events" },
-    { label: "Membership", href: "#membership" },
+    { label: "Rewards", href: "#features" },
     { label: "Sign Up", href: "/register" }
 ];
 

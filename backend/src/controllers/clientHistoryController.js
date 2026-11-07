@@ -1,7 +1,6 @@
 import Booking from "../models/booking.js";
 import Game from "../models/game.js";
 import Loyalty from "../models/loyalty.js";
-import Membership from "../models/membership.js";
 import Payment from "../models/payment.js";
 import TournamentReg from "../models/tournamentReg.js";
 
@@ -26,14 +25,9 @@ const formatDay = (date) => date.toLocaleDateString("en-US", { timeZone: "UTC", 
 // payment status shown to the client: pending | paid | rejected | cancelled | refunded
 const onlineStatus = {
     booking: { pending: "pending", approved: "paid", completed: "paid", rejected: "rejected", cancelled: "cancelled" },
-    membership: { pending: "pending", active: "paid", expired: "paid", rejected: "rejected", cancelled: "cancelled" },
     event: { registered: "pending", confirmed: "paid", rejected: "rejected", cancelled: "cancelled" }
 };
 const clubStatus = { pending: "pending", completed: "paid", refunded: "refunded" };
-
-const membershipStatus = (membership) => (
-    membership.status === "active" && membership.expiryDate <= new Date() ? "expired" : membership.status
-);
 
 const serializeGame = (game) => ({
     id: String(game._id),
@@ -51,8 +45,8 @@ const serializeGame = (game) => ({
 });
 
 // payments the club recorded, plus the online payments the client sent with proof
-const buildPayments = ({ payments, bookings, memberships, registrations }) => {
-    // an online Payment record for a booking/membership/event is the club's copy of a proof payment,
+const buildPayments = ({ payments, bookings, registrations }) => {
+    // an online Payment record for a booking or event is the club's copy of a proof payment,
     // so the proof entry is skipped rather than counted twice
     const recordedOnline = new Set(payments.filter((payment) => payment.method === "online").map((payment) => String(payment.referenceId)));
     const online = (type, doc, amount, description) => (recordedOnline.has(String(doc._id)) ? null : {
@@ -63,7 +57,7 @@ const buildPayments = ({ payments, bookings, memberships, registrations }) => {
         method: doc.paymentAccount?.method || "online",
         reference: doc.reference,
         transactionId: doc.transactionId,
-        status: onlineStatus[type][type === "membership" ? membershipStatus(doc) : doc.status] || "pending",
+        status: onlineStatus[type][doc.status] || "pending",
         date: doc.paymentSubmittedAt || doc.createdAt
     });
 
@@ -81,8 +75,6 @@ const buildPayments = ({ payments, bookings, memberships, registrations }) => {
         })),
         ...bookings.filter((booking) => booking.transactionId).map((booking) => online("booking", booking, booking.advanceAmount,
             `Booking advance · ${booking.table?.name || "Table"}, ${formatDay(booking.date)}`)),
-        ...memberships.filter((membership) => membership.transactionId).map((membership) => online("membership", membership, membership.price,
-            `${capitalize(membership.plan)} membership`)),
         ...registrations.filter((registration) => registration.feePaid > 0 && registration.transactionId).map((registration) => online("event", registration, registration.feePaid,
             `Entry fee · ${registration.event?.title || "Event"}`))
     ]
@@ -90,7 +82,7 @@ const buildPayments = ({ payments, bookings, memberships, registrations }) => {
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
-const buildActivity = ({ bookings, games, memberships, registrations, loyalty }) => [
+const buildActivity = ({ bookings, games, registrations, loyalty }) => [
     ...bookings.map((booking) => ({
         id: `booking-${booking._id}`,
         kind: "booking",
@@ -110,16 +102,6 @@ const buildActivity = ({ bookings, games, memberships, registrations, loyalty })
         amount: game.status === "completed" ? game.finalAmount : null,
         date: game.endTime || game.startTime,
         link: null
-    })),
-    ...memberships.map((membership) => ({
-        id: `membership-${membership._id}`,
-        kind: "membership",
-        title: `${capitalize(membership.plan)} membership`,
-        detail: membership.allBranches ? "All branches" : formatBranchName(membership.branchId).replace("GOODSHOT ", ""),
-        status: membershipStatus(membership),
-        amount: membership.price,
-        date: membership.createdAt,
-        link: "/client/memberships/manage"
     })),
     ...registrations.map((registration) => ({
         id: `event-${registration._id}`,
@@ -149,10 +131,9 @@ export const getClientHistory = async (req, res) => {
     try {
         const user = req.user._id;
         const branch = { path: "branchId", select: "branchName" };
-        const [bookings, games, memberships, registrations, payments, loyalty, gameTotals] = await Promise.all([
+        const [bookings, games, registrations, payments, loyalty, gameTotals] = await Promise.all([
             Booking.find({ user }).sort({ createdAt: -1 }).limit(LIST_LIMIT).populate(branch).populate("table", "name tableType").lean(),
             Game.find({ user }).sort({ startTime: -1 }).limit(LIST_LIMIT).populate(branch).populate("table", "name tableType").lean(),
-            Membership.find({ user }).sort({ createdAt: -1 }).limit(LIST_LIMIT).populate(branch).lean(),
             TournamentReg.find({ user }).sort({ createdAt: -1 }).limit(LIST_LIMIT).populate({ path: "event", select: "title branchId", populate: branch }).lean(),
             Payment.find({ user }).sort({ createdAt: -1 }).limit(LIST_LIMIT).populate(branch).lean(),
             Loyalty.findOne({ user }).lean(),
@@ -163,8 +144,7 @@ export const getClientHistory = async (req, res) => {
             ])
         ]);
 
-        const paymentList = buildPayments({ payments, bookings, memberships, registrations });
-        const activeMembership = memberships.find((membership) => membershipStatus(membership) === "active");
+        const paymentList = buildPayments({ payments, bookings, registrations });
 
         res.status(200).json({
             summary: {
@@ -175,12 +155,11 @@ export const getClientHistory = async (req, res) => {
                 bookings: bookings.length,
                 completedBookings: bookings.filter((booking) => booking.status === "completed").length,
                 eventsJoined: registrations.filter((registration) => registration.status === "confirmed").length,
-                loyaltyPoints: loyalty?.points || 0,
-                membership: activeMembership ? { plan: capitalize(activeMembership.plan), expiryDate: activeMembership.expiryDate } : null
+                loyaltyPoints: loyalty?.points || 0
             },
             games: games.map(serializeGame),
             payments: paymentList,
-            activity: buildActivity({ bookings, games, memberships, registrations, loyalty })
+            activity: buildActivity({ bookings, games, registrations, loyalty })
         });
     } catch (error) {
         console.error("Get client history error:", error.message);

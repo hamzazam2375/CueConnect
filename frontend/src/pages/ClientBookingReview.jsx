@@ -6,7 +6,7 @@ import SidebarToggle from "../components/SidebarToggle";
 import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import PaymentProofForm from "../components/PaymentProofForm";
-import { createClientBooking, fetchBranchTables, formatOpeningHours, getAdvanceAmount, getApiError, getBookingPrice } from "../utils/clientBookings";
+import { createClientBooking, fetchBranchTables, formatOpeningHours, getAdvanceAmount, getApiError, getBookingTotal } from "../utils/clientBookings";
 import { TRANSACTION_ID } from "../utils/payments";
 import { fetchClientLoyalty, maxRedeemablePoints, POINT_VALUE } from "../utils/loyalty";
 
@@ -145,11 +145,11 @@ export default function ClientBookingReview() {
     if (!scheduleValid) return <Navigate to="/client/book/schedule" replace />;
 
     const endTime = startTime + duration * 60;
-    const price = getBookingPrice({ hourlyRate: table.pricePerHour, duration, membership: data.membership, dateKey: dateValue, startTime });
-    const maxPoints = Math.min(pointsBalance, maxRedeemablePoints(price.total));
+    const subtotal = getBookingTotal(table.pricePerHour, duration);
+    const maxPoints = Math.min(pointsBalance, maxRedeemablePoints(subtotal));
     const pointsUsed = Math.min(Math.max(Number.parseInt(pointsInput, 10) || 0, 0), maxPoints);
     const pointsDiscount = pointsUsed * POINT_VALUE;
-    const total = price.total - pointsDiscount;
+    const total = subtotal - pointsDiscount;
     const advance = getAdvanceAmount(total);
     const accounts = branch.paymentAccounts;
     const account = accounts.find((item) => item.id === accountId);
@@ -198,7 +198,7 @@ export default function ClientBookingReview() {
 
                 <aside className="dashboard-rise h-fit rounded-3xl border border-white/[0.08] bg-neutral-950/90 p-5 sm:p-6 lg:sticky lg:top-6" style={{ animationDelay: "200ms" }}>
                     <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name="receipt" /></span><div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">Price summary</p><h2 className="mt-0.5 text-lg font-bold">Booking total</h2></div></div>
-                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div>{price.discount > 0 && <div className="flex justify-between text-neutral-500"><span>{data.membership.plan} member · {price.discount}% off</span><span className="text-emerald-400">− PKR {price.discountAmount.toLocaleString()}</span></div>}{pointsUsed > 0 && <div className="flex justify-between text-neutral-500"><span>{pointsUsed.toLocaleString()} loyalty points</span><span className="text-emerald-400">− PKR {pointsDiscount.toLocaleString()}</span></div>}<div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
+                    <div className="mt-6 space-y-3 border-b border-white/[0.07] pb-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Hourly rate</span><span>PKR {table.pricePerHour}</span></div><div className="flex justify-between text-neutral-500"><span>Duration</span><span>× {duration}</span></div>{pointsUsed > 0 && <div className="flex justify-between text-neutral-500"><span>{pointsUsed.toLocaleString()} loyalty points</span><span className="text-emerald-400">− PKR {pointsDiscount.toLocaleString()}</span></div>}<div className="flex justify-between text-neutral-500"><span>Service fee</span><span className="text-emerald-400">Free</span></div></div>
                     <div className="space-y-3 border-b border-white/[0.07] py-5 text-sm"><div className="flex justify-between text-neutral-500"><span>Booking total</span><span className="font-semibold text-neutral-300">PKR {total.toLocaleString()}</span></div><div className="flex justify-between text-neutral-500"><span>Pay at club</span><span>PKR {(total - advance).toLocaleString()}</span></div></div>
                     <div className="flex items-end justify-between py-5"><div><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-600">Advance now</p><p className="mt-1 text-xs text-neutral-600">50% of the total</p></div><p className="text-2xl font-black text-red-400">PKR {advance.toLocaleString()}</p></div>
 

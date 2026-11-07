@@ -5,6 +5,7 @@ import Table from "../models/table.js";
 import User from "../models/user.js";
 import { OPEN_BILL_STATUSES, createBillReference, reapplyDiscountBreakdown, roundMoney } from "../utils/billMath.js";
 import { displayCustomerCode } from "../utils/customerCode.js";
+import { awardGamePoints } from "../services/loyalty.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -309,6 +310,7 @@ export const stopGame = async (req, res) => {
 
         const updated = await populateGame(Game.findById(game._id));
         res.status(200).json({ game: serializeGame(updated) });
+        awardGamePoints(game, game.table.name);
     } catch (error) {
         console.error("Stop game error:", error.message);
         res.status(500).json({ message: "Server error" });

@@ -1,6 +1,5 @@
 import path from "path";
 import Booking from "../models/booking.js";
-import Membership from "../models/membership.js";
 import TournamentReg from "../models/tournamentReg.js";
 import { PAYMENT_PROOF_DIR } from "../middleware/upload.js";
 
@@ -44,9 +43,9 @@ export const parsePayment = async (branch, body) => {
         return { status: 400, error: "Enter the transaction ID from your payment receipt" };
     }
 
-    // one receipt can only pay for one booking, membership, or event registration
+    // one receipt can only pay for one booking or event registration
     const filter = { transactionId, "paymentAccount.method": account.method };
-    if (await Booking.exists(filter) || await Membership.exists(filter) || await TournamentReg.exists(filter)) {
+    if (await Booking.exists(filter) || await TournamentReg.exists(filter)) {
         return { status: 409, error: "This transaction ID has already been used for another payment" };
     }
 

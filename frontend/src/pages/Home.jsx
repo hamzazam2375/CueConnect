@@ -15,9 +15,9 @@ const features = [
         description: "Browse available tables across all branches and book your slot online in seconds."
     },
     {
-        icon: "💳",
-        title: "Membership",
-        description: "Unlock exclusive discounts, priority booking, and special perks with our membership plans."
+        icon: "🔔",
+        title: "Waitlist Alerts",
+        description: "Join the waitlist for a booked slot and get notified the moment the table frees up."
     },
     {
         icon: "🏆",
@@ -27,7 +27,7 @@ const features = [
     {
         icon: "⭐",
         title: "Loyalty Rewards",
-        description: "Earn points with every game, redeem them for discounts, and enjoy being a valued member."
+        description: "Earn 10 points for every game you play and redeem them for discounts on your bookings."
     }
 ];
 
@@ -76,7 +76,7 @@ export default function Home() {
             </section>
 
             {/* features */}
-            <section className="py-20 px-4 bg-neutral-950">
+            <section id="features" className="py-20 px-4 bg-neutral-950">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-14">
                         <p className="text-red-500 font-semibold text-sm tracking-wider uppercase mb-2">

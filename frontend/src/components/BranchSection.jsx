@@ -85,28 +85,6 @@ function BranchDetail({ branch, onClose }) {
                     </div>
                 </div>
 
-                {/* memberships */}
-                <div>
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2" id="membership">
-                        💳 Memberships
-                    </h4>
-                    <div className="space-y-3">
-                        {branch.memberships.map((m, i) => (
-                            <div
-                                key={i}
-                                className="bg-black/40 rounded-lg p-4 border border-white/5"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-white font-semibold">{m.plan}</span>
-                                    <span className="text-red-400 font-bold">PKR {m.price}/{m.duration}</span>
-                                </div>
-                                <p className="text-gray-400 text-xs">{m.rules}</p>
-                                <p className="text-green-400 text-xs mt-1 font-medium">{m.discount}% discount on rates</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
                 {/* discounts */}
                 <div>
                     <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
