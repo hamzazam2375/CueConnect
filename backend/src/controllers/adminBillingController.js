@@ -293,7 +293,7 @@ export const downloadBillReceipt = async (req, res) => {
             ...(data.payments.length ? data.payments.map((payment) => `${new Date(payment.createdAt).toLocaleString()} · ${payment.method} · Rs. ${payment.amount}`) : ["No payments yet"])
         ];
 
-        const pdf = buildReceiptPdf(lines);
+        const pdf = await buildReceiptPdf(lines);
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="${data.reference}.pdf"`);
         res.send(pdf);

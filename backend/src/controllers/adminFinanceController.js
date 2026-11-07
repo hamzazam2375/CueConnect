@@ -350,7 +350,7 @@ export const downloadFinanceReport = async (req, res) => {
             return res.status(400).json({ message: "Report type must be summary, income, or expense" });
         }
         const report = await reportLines(req);
-        const pdf = buildReportPdf(report.title, report.lines.slice(1));
+        const pdf = await buildReportPdf(report.title, report.lines.slice(1));
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="${report.type}-report.pdf"`);
         res.send(pdf);
