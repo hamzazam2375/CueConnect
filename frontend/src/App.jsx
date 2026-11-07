@@ -37,6 +37,8 @@ const TableManagement = lazy(() => import("./pages/TableManagement"));
 const AdminGames = lazy(() => import("./pages/AdminGames"));
 const AdminBilling = lazy(() => import("./pages/AdminBilling"));
 const AdminCustomers = lazy(() => import("./pages/AdminCustomers"));
+const AdminFinance = lazy(() => import("./pages/AdminFinance"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 export default function App() {
@@ -81,6 +83,8 @@ export default function App() {
                         <Route path="/admin/games" element={<AdminGames />} />
                         <Route path="/admin/billing" element={<AdminBilling />} />
                         <Route path="/admin/customers" element={<AdminCustomers />} />
+                        <Route path="/admin/finance" element={<AdminFinance />} />
+                        <Route path="/admin/settings" element={<AdminSettings />} />
                     </Route>
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route path="/admin/register" element={<AdminSignup />} />

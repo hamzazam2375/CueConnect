@@ -29,6 +29,23 @@ import {
     downloadBillReceipt
 } from "../controllers/adminBillingController.js";
 import Bill from "../models/bill.js";
+import {
+    getFinanceOverview,
+    listFinanceIncome,
+    listFinanceExpenses,
+    createExpense,
+    previewFinanceReport,
+    downloadFinanceReport
+} from "../controllers/adminFinanceController.js";
+import {
+    getSettings,
+    updateBranchSettings,
+    addPaymentAccount,
+    updatePaymentAccount,
+    deletePaymentAccount,
+    updateAdminProfile,
+    updateAdminPassword
+} from "../controllers/adminSettingsController.js";
 
 const router = express.Router();
 
@@ -48,6 +65,21 @@ router.get("/bills/:id/receipt", protect, authorize("admin"), downloadBillReceip
 router.get("/bills/:id", protect, authorize("admin"), getBill);
 router.patch("/bills/:id/discount", protect, authorize("admin"), applyBillDiscount);
 router.post("/bills/:id/payments", protect, authorize("admin"), recordBillPayment);
+
+router.get("/finance", protect, authorize("admin"), getFinanceOverview);
+router.get("/finance/income", protect, authorize("admin"), listFinanceIncome);
+router.get("/finance/expenses", protect, authorize("admin"), listFinanceExpenses);
+router.get("/finance/report", protect, authorize("admin"), previewFinanceReport);
+router.get("/finance/report-pdf", protect, authorize("admin"), downloadFinanceReport);
+router.post("/expenses", protect, authorize("admin"), createExpense);
+
+router.get("/settings", protect, authorize("admin"), getSettings);
+router.patch("/settings/branch", protect, authorize("admin"), updateBranchSettings);
+router.post("/settings/accounts", protect, authorize("admin"), addPaymentAccount);
+router.patch("/settings/accounts/:accountId", protect, authorize("admin"), updatePaymentAccount);
+router.delete("/settings/accounts/:accountId", protect, authorize("admin"), deletePaymentAccount);
+router.patch("/settings/profile", protect, authorize("admin"), updateAdminProfile);
+router.patch("/settings/password", protect, authorize("admin"), updateAdminPassword);
 
 // GET /api/admin/dashboard-stats
 router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => {
@@ -75,14 +107,14 @@ router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => 
 
         // today's income
         const todayIncomeResult = await Income.aggregate([
-            { $match: { branchId, createdAt: { $gte: todayStart, $lte: todayEnd } } },
+            { $match: { branchId, date: { $gte: todayStart, $lte: todayEnd }, category: { $nin: ["membership", "booking"] }, sourceType: { $nin: ["booking"] }, status: { $ne: "refunded" } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
         ]);
         const todayIncome = todayIncomeResult[0]?.total || 0;
 
         // today's expenses
         const todayExpenseResult = await Expense.aggregate([
-            { $match: { branchId, createdAt: { $gte: todayStart, $lte: todayEnd } } },
+            { $match: { branchId, date: { $gte: todayStart, $lte: todayEnd } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
         ]);
         const todayExpenses = todayExpenseResult[0]?.total || 0;
