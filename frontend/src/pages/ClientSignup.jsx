@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { clearError, clientSignup } from "../store/authSlice";
 import Logo from "../components/Logo";
+import EmailCodeStep from "../components/EmailCodeStep";
 import { PASSWORD_RULES } from "../utils/passwordPolicy";
 
 export default function ClientSignup() {
@@ -14,6 +15,7 @@ export default function ClientSignup() {
         confirmPassword: ""
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [verification, setVerification] = useState(null);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -40,13 +42,13 @@ export default function ClientSignup() {
         if (!passwordsMatch || !passwordStrong) return;
 
         try {
-            await dispatch(clientSignup({
+            const result = await dispatch(clientSignup({
                 firstName: form.firstName,
                 lastName: form.lastName,
                 email: form.email.trim(),
                 password: form.password
             })).unwrap();
-            navigate("/login", { state: { accountCreated: true } });
+            setVerification(result);
         } catch {
             // The Redux state displays the API error in the form.
         }
@@ -79,6 +81,15 @@ export default function ClientSignup() {
                 </div>
 
                 <div className="bg-neutral-950/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl shadow-red-900/10 px-7 py-6 sm:px-9 sm:py-7">
+                    {verification ? (
+                        <EmailCodeStep
+                            email={verification.email}
+                            notice={verification.message}
+                            emailSent={verification.emailSent}
+                            resendIn={verification.resendIn}
+                            onBack={() => navigate("/login")}
+                        />
+                    ) : (<>
                     <div className="text-center mb-5">
                         <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-red-600/10 border border-red-500/20 mb-3">
                             <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -220,6 +231,7 @@ export default function ClientSignup() {
                             ) : "Create Account"}
                         </button>
                     </form>
+                    </>)}
 
                     <div className="mt-5 pt-4 border-t border-white/[0.06] text-center">
                         <Link to="/login" className="text-gray-400 text-xs hover:text-red-400 transition-colors duration-200">

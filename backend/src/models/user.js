@@ -39,6 +39,19 @@ const userSchema = new mongoose.Schema(
             default: "client"
         },
 
+        // clients must confirm their email with a code before they can sign in;
+        // accounts from before this existed start unverified and confirm on their next sign in
+        emailVerified: {
+            type: Boolean,
+            default: false
+        },
+
+        // the current verification code (hashed) and its limits; never sent to clients
+        emailCodeHash: { type: String, select: false },
+        emailCodeExpiresAt: { type: Date, select: false },
+        emailCodeAttempts: { type: Number, select: false },
+        emailCodeSentAt: { type: Date, select: false },
+
         customerCode: {
             type: String,
             unique: true,

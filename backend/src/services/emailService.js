@@ -6,8 +6,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * Send a 6-digit OTP verification email.
  * @param {string} to   – recipient email address
  * @param {string} otp  – the 6-digit code
+ * @param {object} [copy] – wording; defaults to the admin registration email
  */
-export const sendOtpEmail = async (to, otp) => {
+export const sendOtpEmail = async (to, otp, {
+    subtitle = "Admin Email Verification",
+    intro = "Use the verification code below to complete your admin registration.",
+    expiresInMinutes = 5
+} = {}) => {
     const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL,
         to,
@@ -28,14 +33,14 @@ export const sendOtpEmail = async (to, otp) => {
           <tr>
             <td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06);">
               <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">CueConnect</h1>
-              <p style="margin:6px 0 0;font-size:13px;color:#888;">Admin Email Verification</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#888;">${subtitle}</p>
             </td>
           </tr>
           <!-- Body -->
           <tr>
             <td style="padding:32px 40px;">
               <p style="margin:0 0 20px;font-size:15px;color:#d1d1d1;line-height:1.6;">
-                Use the verification code below to complete your admin registration. This code expires in <strong style="color:#fff;">5 minutes</strong>.
+                ${intro} This code expires in <strong style="color:#fff;">${expiresInMinutes} minutes</strong>.
               </p>
               <!-- OTP Box -->
               <div style="background:#1a1a1a;border:1px solid rgba(220,38,38,0.25);border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">

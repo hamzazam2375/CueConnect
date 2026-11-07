@@ -16,15 +16,29 @@ export const adminLogin = createAsyncThunk(
     }
 );
 
-// client login
+// client login; resolves to { user } or, while the email is unverified, { verification }
 export const clientLogin = createAsyncThunk(
     "auth/clientLogin",
     async ({ email, password }, { rejectWithValue }) => {
         try {
             const { data } = await api.post("/auth/client/login", { email, password });
+            return { user: data.user };
+        } catch (err) {
+            if (err.response?.data?.needsVerification) return { verification: err.response.data };
+            return rejectWithValue(err.response?.data?.message || "Login failed");
+        }
+    }
+);
+
+// client enters the emailed code; signs them in
+export const verifyClientEmail = createAsyncThunk(
+    "auth/verifyClientEmail",
+    async ({ email, code }, { rejectWithValue }) => {
+        try {
+            const { data } = await api.post("/auth/client/verify-email", { email, code });
             return data.user;
         } catch (err) {
-            return rejectWithValue(err.response?.data?.message || "Login failed");
+            return rejectWithValue(err.response?.data?.message || "Verification failed");
         }
     }
 );
@@ -197,11 +211,16 @@ const authSlice = createSlice({
             })
             .addCase(clientLogin.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.user = action.payload;
+                if (action.payload.user) state.user = action.payload.user;
             })
             .addCase(clientLogin.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
+            })
+
+            .addCase(verifyClientEmail.fulfilled, (state, action) => {
+                state.user = action.payload;
+                state.error = null;
             })
 
             // ── client signup ──
