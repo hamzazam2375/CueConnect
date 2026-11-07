@@ -39,7 +39,6 @@ const discountForSlot = (membership, date, startTime) => (
     membership && membership.expiryDate > new Date(date.getTime() + startTime * 60 * 1000) ? membership.discount : 0
 );
 
-// club hours are not stored on Branch yet; keep in sync with the booking UI
 const DEFAULT_OPENING_TIME = 12 * 60;
 const DEFAULT_CLOSING_TIME = 26 * 60;
 
@@ -72,13 +71,21 @@ const formatBranchName = (branch) => {
     return name.toUpperCase().startsWith("GOODSHOT") ? name.toUpperCase() : `GOODSHOT ${name}`.trim();
 };
 
+const hoursFrom = (branch) => {
+    const openingTime = Number(branch?.openingTime);
+    const closingTime = Number(branch?.closingTime);
+    return {
+        openingTime: Number.isFinite(openingTime) ? openingTime : DEFAULT_OPENING_TIME,
+        closingTime: Number.isFinite(closingTime) ? closingTime : DEFAULT_CLOSING_TIME
+    };
+};
+
 const serializeBranch = (branch, tables = []) => ({
     id: String(branch._id),
     name: formatBranchName(branch),
     code: branch.branchCode,
     paymentAccounts: (branch.paymentAccounts || []).map(serializePaymentAccount),
-    openingTime: DEFAULT_OPENING_TIME,
-    closingTime: DEFAULT_CLOSING_TIME,
+    ...hoursFrom(branch),
     tableCount: tables.length,
     availableCount: tables.filter((table) => table.status === "available").length
 });
@@ -130,7 +137,7 @@ const serializeBooking = (booking) => {
 
 const populateBooking = (query) => query
     .populate("table", "name tableType pricePerHour")
-    .populate("branchId", "branchName branchCode");
+    .populate("branchId", "branchName branchCode openingTime closingTime");
 
 const createReference = (dateKey) => {
     const stamp = dateKey.replaceAll("-", "");
@@ -230,7 +237,7 @@ const serializeWaitlistEntry = (entry) => {
 
 const populateWaitlist = (query) => query
     .populate("table", "name tableType")
-    .populate("branchId", "branchName branchCode");
+    .populate("branchId", "branchName branchCode openingTime closingTime");
 
 // Tells every waiting client whose whole slot on this table is now free; the first to book gets it.
 // Call after a booking stops holding a slot (client cancel, reschedule, table change, admin reject).
@@ -400,12 +407,13 @@ export const createClientBooking = async (req, res) => {
             return fail(400, "This table is not available for booking");
         }
 
-        const schedule = parseSchedule(req.body);
+        const club = await Branch.findById(table.branchId);
+        const schedule = parseSchedule(req.body, hoursFrom(club));
         if (schedule.error) {
             return fail(400, schedule.error);
         }
 
-        const payment = await parsePayment(await Branch.findById(table.branchId), req.body);
+        const payment = await parsePayment(club, req.body);
         if (payment.error) {
             return fail(payment.status, payment.error);
         }
@@ -547,7 +555,7 @@ export const rescheduleClientBooking = async (req, res) => {
             return res.status(400).json({ message: "Only pending bookings can be rescheduled" });
         }
 
-        const schedule = parseSchedule(req.body);
+        const schedule = parseSchedule(req.body, hoursFrom(booking.branchId));
         if (schedule.error) {
             return res.status(400).json({ message: schedule.error });
         }
@@ -649,7 +657,7 @@ export const joinWaitlist = async (req, res) => {
             return res.status(400).json({ message: "This table is not available for booking" });
         }
 
-        const schedule = parseSchedule(req.body);
+        const schedule = parseSchedule(req.body, hoursFrom(await Branch.findById(table.branchId)));
         if (schedule.error) {
             return res.status(400).json({ message: schedule.error });
         }

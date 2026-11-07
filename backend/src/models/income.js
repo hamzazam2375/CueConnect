@@ -14,6 +14,12 @@ const incomeSchema = new mongoose.Schema(
             trim: true
         },
 
+        description: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
         amount: {
             type: Number,
             required: true
@@ -23,6 +29,30 @@ const incomeSchema = new mongoose.Schema(
             type: String,
             enum: ["game", "booking", "membership", "event", "other"],
             required: true
+        },
+
+        sourceType: {
+            type: String,
+            enum: ["booking", "frame", "century", "tournament", "other"],
+            default: "other"
+        },
+
+        paymentMethod: {
+            type: String,
+            enum: ["cash", "online", "card"],
+            default: null
+        },
+
+        status: {
+            type: String,
+            enum: ["completed", "refunded"],
+            default: "completed"
+        },
+
+        paymentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Payment",
+            default: null
         },
 
         date: {
@@ -40,5 +70,8 @@ const incomeSchema = new mongoose.Schema(
         timestamps: true
     }
 );
+
+incomeSchema.index({ paymentId: 1 }, { unique: true, sparse: true });
+incomeSchema.index({ branchId: 1, date: -1 });
 
 export default mongoose.model("Income", incomeSchema);

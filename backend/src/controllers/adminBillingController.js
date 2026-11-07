@@ -5,8 +5,8 @@ import Payment from "../models/payment.js";
 import Membership from "../models/membership.js";
 import Discount from "../models/discount.js";
 import Loyalty from "../models/loyalty.js";
-import Income from "../models/income.js";
 import { customerCode, reapplyDiscountBreakdown, roundMoney, syncBillTotals } from "../utils/billMath.js";
+import { recordReceivedIncome, sourceTypeFromGames } from "../utils/recordIncome.js";
 import { buildReceiptPdf } from "../utils/receiptPdf.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
@@ -234,7 +234,7 @@ export const recordBillPayment = async (req, res) => {
             return res.status(400).json({ message: "Enter an amount greater than 0 and not more than the remaining balance" });
         }
 
-        await Payment.create({
+        const payment = await Payment.create({
             branchId: req.user.branchId,
             user: bill.payerUser || null,
             type: "bill",
@@ -249,11 +249,14 @@ export const recordBillPayment = async (req, res) => {
         syncBillTotals(bill);
         await bill.save();
 
-        await Income.create({
+        await recordReceivedIncome({
             branchId: req.user.branchId,
-            source: `${bill.reference} · ${method}`,
+            paymentId: payment._id,
             amount,
-            category: "game",
+            method,
+            sourceType: sourceTypeFromGames(bill.games),
+            description: `Payment for bill ${bill.reference}`,
+            source: `${bill.reference} · ${method}`,
             notes: `Payment for bill ${bill.reference}`
         });
 

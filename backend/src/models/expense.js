@@ -25,6 +25,18 @@ const expenseSchema = new mongoose.Schema(
             required: true
         },
 
+        paymentMethod: {
+            type: String,
+            enum: ["cash", "online", "card"],
+            default: null
+        },
+
+        recordedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
+        },
+
         date: {
             type: Date,
             default: Date.now

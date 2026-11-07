@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import AdminLayout, { Icon } from "../components/AdminLayout";
-import StartGameModal from "../components/StartGameModal";
+import StartGameModal, { ModalShell, inputClass, labelClass } from "../components/StartGameModal";
 import api from "../services/api";
 
 function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
@@ -114,6 +114,7 @@ function QuickActionButton({ icon, label, onClick, color = "red" }) {
         blue:    "border-blue-500/15 bg-blue-500/[0.07] text-blue-400 hover:bg-blue-500/15",
         amber:   "border-amber-500/15 bg-amber-500/[0.07] text-amber-400 hover:bg-amber-500/15",
         violet:  "border-violet-500/15 bg-violet-500/[0.07] text-violet-400 hover:bg-violet-500/15",
+        rose:    "border-rose-500/15 bg-rose-500/[0.07] text-rose-400 hover:bg-rose-500/15",
     };
     return (
         <button
@@ -144,7 +145,13 @@ export default function AdminDashboard() {
     const [statsLoading, setStatsLoading] = useState(true);
     const [startOpen, setStartOpen] = useState(false);
     const [startSuccess, setStartSuccess] = useState(null);
+    const [expenseOpen, setExpenseOpen] = useState(false);
+    const [expenseForm, setExpenseForm] = useState({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
+    const [expenseSaving, setExpenseSaving] = useState(false);
+    const [expenseError, setExpenseError] = useState(null);
     const navigate = useNavigate();
+
+    const reloadStats = () => api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
 
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -166,9 +173,74 @@ export default function AdminDashboard() {
                 onStarted={() => {
                     setStartSuccess("Game started");
                     setTimeout(() => setStartSuccess(null), 3000);
-                    api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
+                    reloadStats();
                 }}
             />
+            {expenseOpen && (
+                <ModalShell title="Add expense" onClose={() => setExpenseOpen(false)}>
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            setExpenseSaving(true);
+                            setExpenseError(null);
+                            try {
+                                await api.post("/admin/expenses", expenseForm);
+                                setExpenseOpen(false);
+                                setExpenseForm({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
+                                setStartSuccess("Expense recorded");
+                                setTimeout(() => setStartSuccess(null), 3000);
+                                reloadStats();
+                            } catch (err) {
+                                setExpenseError(err.response?.data?.message || "Expense could not be recorded");
+                            } finally {
+                                setExpenseSaving(false);
+                            }
+                        }}
+                        className="space-y-4"
+                    >
+                        <div>
+                            <label className={labelClass}>Description</label>
+                            <input required value={expenseForm.description} onChange={(e) => setExpenseForm((f) => ({ ...f, description: e.target.value }))} className={inputClass} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={labelClass}>Category</label>
+                                <select value={expenseForm.category} onChange={(e) => setExpenseForm((f) => ({ ...f, category: e.target.value }))} className={`${inputClass} appearance-none`}>
+                                    <option value="rent" className="bg-neutral-900">Rent</option>
+                                    <option value="utilities" className="bg-neutral-900">Utilities</option>
+                                    <option value="equipment" className="bg-neutral-900">Equipment</option>
+                                    <option value="salary" className="bg-neutral-900">Salary</option>
+                                    <option value="maintenance" className="bg-neutral-900">Maintenance</option>
+                                    <option value="other" className="bg-neutral-900">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>Amount</label>
+                                <input required type="number" min="1" step="1" value={expenseForm.amount} onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))} className={inputClass} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={labelClass}>Payment method</label>
+                                <select value={expenseForm.paymentMethod} onChange={(e) => setExpenseForm((f) => ({ ...f, paymentMethod: e.target.value }))} className={`${inputClass} appearance-none`}>
+                                    <option value="cash" className="bg-neutral-900">Cash</option>
+                                    <option value="online" className="bg-neutral-900">Online</option>
+                                    <option value="card" className="bg-neutral-900">Card</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>Date</label>
+                                <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))} className={inputClass} />
+                            </div>
+                        </div>
+                        {expenseError && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{expenseError}</p>}
+                        <div className="flex gap-3 pt-1">
+                            <button type="button" onClick={() => setExpenseOpen(false)} className="flex-1 rounded-xl border border-white/[0.08] py-2.5 text-sm font-semibold">Cancel</button>
+                            <button type="submit" disabled={expenseSaving} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold hover:bg-red-500 disabled:bg-red-900">{expenseSaving ? "Saving..." : "Save expense"}</button>
+                        </div>
+                    </form>
+                </ModalShell>
+            )}
             {error && <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">{error}</div>}
             {startSuccess && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">{startSuccess}</div>}
 
@@ -210,10 +282,11 @@ export default function AdminDashboard() {
                                     <h2 className="text-lg font-bold">Quick Actions</h2>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                                 <QuickActionButton icon="gamepad" label="Start Game" onClick={() => setStartOpen(true)} color="violet" />
                                 <QuickActionButton icon="calendar" label="View Bookings" onClick={() => navigate("/admin/bookings")} color="blue" />
                                 <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => navigate("/admin/bookings")} color="amber" />
+                                <QuickActionButton icon="arrowDown" label="Add Expense" onClick={() => { setExpenseError(null); setExpenseOpen(true); }} color="rose" />
                             </div>
                         </article>
                     </section>
