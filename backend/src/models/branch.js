@@ -24,6 +24,31 @@ const branchSchema = new mongoose.Schema(
             uppercase: true
         },
 
+        address: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        phone: {
+            type: String,
+            trim: true,
+            default: ""
+        },
+
+        // minutes after midnight; values of 1440+ are after midnight (e.g. 1560 = 2:00 AM)
+        openingTime: {
+            type: Number,
+            default: 12 * 60,
+            min: 0
+        },
+
+        closingTime: {
+            type: Number,
+            default: 26 * 60,
+            min: 1
+        },
+
         // accounts clients send booking advances to
         paymentAccounts: [
             {
