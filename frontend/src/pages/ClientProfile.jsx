@@ -5,6 +5,7 @@ import Logo from "../components/Logo";
 import SidebarToggle from "../components/SidebarToggle";
 import NotificationBell from "../components/NotificationBell";
 import { changeClientPassword, logout, updateClientProfile } from "../store/authSlice";
+import { passwordError } from "../utils/passwordPolicy";
 
 const phonePattern = /^\+?[0-9][0-9\s-]{8,18}$/;
 
@@ -93,7 +94,8 @@ export default function ClientProfile() {
         event.preventDefault();
         setPasswordMessage(null);
         if (passwords.newPassword !== passwords.confirmPassword) return setPasswordMessage({ type: "error", text: "New passwords do not match." });
-        if (passwords.newPassword.length < 8) return setPasswordMessage({ type: "error", text: "New password must contain at least 8 characters." });
+        const weakPassword = passwordError(passwords.newPassword);
+        if (weakPassword) return setPasswordMessage({ type: "error", text: `${weakPassword}.` });
         if (passwords.currentPassword === passwords.newPassword) return setPasswordMessage({ type: "error", text: "New password must be different from your current password." });
         try {
             await dispatch(changeClientPassword({ currentPassword: passwords.currentPassword, newPassword: passwords.newPassword })).unwrap();
@@ -139,7 +141,7 @@ export default function ClientProfile() {
                                 {passwordMessage && <Notice type={passwordMessage.type}>{passwordMessage.text}</Notice>}
                                 <PasswordField id="current-password" label="Current password" value={passwords.currentPassword} onChange={(event) => { setPasswords((current) => ({ ...current, currentPassword: event.target.value })); setPasswordMessage(null); }} visible={visible.current} onToggle={() => setVisible((current) => ({ ...current, current: !current.current }))} autoComplete="current-password" />
                                 <PasswordField id="new-password" label="New password" value={passwords.newPassword} onChange={(event) => { setPasswords((current) => ({ ...current, newPassword: event.target.value })); setPasswordMessage(null); }} visible={visible.next} onToggle={() => setVisible((current) => ({ ...current, next: !current.next }))} autoComplete="new-password" />
-                                {passwords.newPassword && <div><div className="grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((level) => <span key={level} className={`h-1 rounded-full ${level <= passwordStrength ? passwordStrength < 3 ? "bg-red-500" : passwordStrength < 5 ? "bg-amber-400" : "bg-emerald-400" : "bg-neutral-800"}`} />)}</div><p className="mt-2 text-[10px] text-neutral-600">Use uppercase, lowercase, a number and a symbol.</p></div>}
+                                {passwords.newPassword && <div><div className="grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((level) => <span key={level} className={`h-1 rounded-full ${level <= passwordStrength ? passwordStrength < 3 ? "bg-red-500" : passwordStrength < 5 ? "bg-amber-400" : "bg-emerald-400" : "bg-neutral-800"}`} />)}</div><p className="mt-2 text-[10px] text-neutral-600">Needs at least 8 characters, one capital letter, and one special character.</p></div>}
                                 <PasswordField id="confirm-password" label="Confirm new password" value={passwords.confirmPassword} onChange={(event) => { setPasswords((current) => ({ ...current, confirmPassword: event.target.value })); setPasswordMessage(null); }} visible={visible.confirm} onToggle={() => setVisible((current) => ({ ...current, confirm: !current.confirm }))} autoComplete="new-password" />
                                 <button type="submit" disabled={isChangingPassword || !passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword} className="w-full rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:border-white/[0.06] disabled:bg-neutral-900 disabled:text-neutral-700">{isChangingPassword ? "Updating password..." : "Change password"}</button>
                             </form>

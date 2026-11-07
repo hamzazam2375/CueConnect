@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { clearError, clientSignup } from "../store/authSlice";
 import Logo from "../components/Logo";
+import { PASSWORD_RULES } from "../utils/passwordPolicy";
 
 export default function ClientSignup() {
     const [form, setForm] = useState({
@@ -23,6 +24,8 @@ export default function ClientSignup() {
     };
 
     const passwordsMatch = form.confirmPassword === "" || form.password === form.confirmPassword;
+    const passwordChecks = PASSWORD_RULES.map((rule) => ({ label: rule.label, met: rule.test(form.password) }));
+    const passwordStrong = passwordChecks.every((check) => check.met);
 
     useEffect(() => {
         return () => dispatch(clearError());
@@ -34,7 +37,7 @@ export default function ClientSignup() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        if (!passwordsMatch) return;
+        if (!passwordsMatch || !passwordStrong) return;
 
         try {
             await dispatch(clientSignup({
@@ -187,9 +190,23 @@ export default function ClientSignup() {
                             </div>
                         </div>
 
+                        {form.password && (
+                            <ul className="-mt-1 flex flex-wrap gap-x-4 gap-y-1" aria-label="Password requirements">
+                                {passwordChecks.map((check) => (
+                                    <li key={check.label} className={`flex items-center gap-1.5 text-[11px] transition-colors ${check.met ? "text-emerald-400" : "text-gray-500"}`}>
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d={check.met ? "M4.5 12.75l6 6 9-13.5" : "M6 12h12"} />
+                                        </svg>
+                                        {check.label}
+                                        <span className="sr-only">{check.met ? "(done)" : "(missing)"}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={!passwordsMatch || isLoading}
+                            disabled={!passwordsMatch || !passwordStrong || isLoading}
                             className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-red-800 disabled:to-red-900 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/25 hover:shadow-red-500/35 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
                         >
                             {isLoading ? (

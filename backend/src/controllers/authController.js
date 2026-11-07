@@ -5,6 +5,7 @@ import User from "../models/user.js";
 import Branch from "../models/branch.js";
 import { sendOtpEmail } from "../services/emailService.js";
 import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOptions.js";
+import { passwordError } from "../utils/passwordPolicy.js";
 import { allocateCustomerCode } from "../utils/customerCode.js";
 
 // track failed secret key attempts per IP
@@ -318,9 +319,9 @@ export const registerClient = async (req, res) => {
             return res.status(400).json({ message: "Please enter a valid email address" });
         }
 
-        // validate password strength
-        if (password.length < 8) {
-            return res.status(400).json({ message: "Password must be at least 8 characters" });
+        const weakPassword = passwordError(password);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
         }
 
         // check if email already taken
@@ -493,8 +494,9 @@ export const changeClientPassword = async (req, res) => {
             return res.status(400).json({ message: "Current password and new password are required" });
         }
 
-        if (newPassword.length < 8) {
-            return res.status(400).json({ message: "New password must be at least 8 characters" });
+        const weakPassword = passwordError(newPassword);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
         }
 
         if (currentPassword === newPassword) {
