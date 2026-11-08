@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import AdminLayout, { Icon } from "../components/AdminLayout";
@@ -139,6 +139,8 @@ function getTimeAgo(dateStr) {
     return `${days}d ago`;
 }
 
+const formatWaitlistDate = (value) => value ? new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+
 export default function AdminDashboard() {
     const { user, error } = useSelector((state) => state.auth);
     const [stats, setStats] = useState(null);
@@ -149,6 +151,10 @@ export default function AdminDashboard() {
     const [expenseForm, setExpenseForm] = useState({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
     const [expenseSaving, setExpenseSaving] = useState(false);
     const [expenseError, setExpenseError] = useState(null);
+    const [waitlist, setWaitlist] = useState([]);
+    const [waitlistLoading, setWaitlistLoading] = useState(true);
+    const [waitlistSaving, setWaitlistSaving] = useState(false);
+    const [waitlistError, setWaitlistError] = useState("");
     const navigate = useNavigate();
 
     const reloadStats = () => api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
@@ -162,6 +168,30 @@ export default function AdminDashboard() {
             .catch(() => setStats(null))
             .finally(() => setStatsLoading(false));
     }, []);
+
+    const loadWaitlist = useCallback(() => api.get("/admin/waitlist")
+        .then(({ data }) => setWaitlist(data.waitlist || []))
+        .catch(() => setWaitlist([]))
+        .finally(() => setWaitlistLoading(false)), []);
+
+    useEffect(() => {
+        loadWaitlist();
+    }, [loadWaitlist]);
+
+    const notifyWaitlistCustomer = async (entry) => {
+        setWaitlistSaving(true);
+        setWaitlistError("");
+        try {
+            await api.patch(`/admin/waitlist/${entry.id}/notify`);
+            await loadWaitlist();
+            setStartSuccess("Customer notified that the slot is free");
+            setTimeout(() => setStartSuccess(null), 3000);
+        } catch (requestError) {
+            setWaitlistError(requestError.response?.data?.message || "Customer could not be notified");
+        } finally {
+            setWaitlistSaving(false);
+        }
+    };
 
     const netProfit = (stats?.todayIncome ?? 0) - (stats?.todayExpenses ?? 0);
 
@@ -285,7 +315,7 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                                 <QuickActionButton icon="gamepad" label="Start Game" onClick={() => setStartOpen(true)} color="violet" />
                                 <QuickActionButton icon="calendar" label="View Bookings" onClick={() => navigate("/admin/bookings")} color="blue" />
-                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => navigate("/admin/bookings")} color="amber" />
+                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => navigate("/admin/dashboard")} color="amber" />
                                 <QuickActionButton icon="arrowDown" label="Add Expense" onClick={() => { setExpenseError(null); setExpenseOpen(true); }} color="rose" />
                             </div>
                         </article>
@@ -356,6 +386,32 @@ export default function AdminDashboard() {
                                     </div>
                                     <span className="text-2xl font-black text-white">{stats?.upcomingEvents ?? 0}</span>
                                 </div>
+                            </div>
+                        </article>
+
+                        {/* Waitlist */}
+                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "520ms" }}>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-xl border border-violet-500/15 bg-violet-500/10 p-2.5 text-violet-500"><Icon name="hourglass" className="h-5 w-5" /></div>
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-500">Table requests</p>
+                                        <h2 className="text-lg font-bold">Waitlist</h2>
+                                    </div>
+                                </div>
+                                <span className="rounded-lg bg-violet-500/10 px-2.5 py-1 text-xs font-bold text-violet-400">{waitlist.length}</span>
+                            </div>
+                            <div className="mt-4">
+                                {waitlistError && <p className="mb-2 rounded-lg bg-red-500/10 px-2.5 py-2 text-xs text-red-400">{waitlistError}</p>}
+                                {waitlistLoading ? <div className="h-24 animate-pulse rounded-xl bg-white/[0.03]" /> : waitlist.length ? waitlist.map((entry) => (
+                                    <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-white/[0.05] py-3 last:border-0">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold text-neutral-200">{entry.customer?.name}</p>
+                                            <p className="truncate text-xs text-neutral-500">{entry.table?.name} · {formatWaitlistDate(entry.date)}</p>
+                                        </div>
+                                        {entry.status === "waiting" && <button type="button" disabled={waitlistSaving} onClick={() => notifyWaitlistCustomer(entry)} className="shrink-0 rounded-lg bg-emerald-600/80 px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50">Mark free</button>}
+                                    </div>
+                                )) : <p className="py-5 text-center text-xs text-neutral-600">No customers are waiting.</p>}
                             </div>
                         </article>
 

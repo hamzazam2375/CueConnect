@@ -8,7 +8,7 @@ const LIST_LIMIT = 30;
 const TOAST_MS = 7000;
 
 // loads the client's notifications, keeps a real-time connection for new ones, and shows them as toasts
-export default function NotificationsProvider({ children }) {
+export default function NotificationsProvider({ children, basePath = "/client" }) {
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -18,7 +18,7 @@ export default function NotificationsProvider({ children }) {
 
     useEffect(() => {
         let active = true;
-        const load = () => fetchNotifications()
+        const load = () => fetchNotifications(basePath)
             .then((data) => {
                 if (!active) return;
                 setNotifications(data.notifications);
@@ -27,7 +27,7 @@ export default function NotificationsProvider({ children }) {
             .catch(() => {});
 
         load();
-        const socket = connectRealtime();
+        const socket = connectRealtime(`${basePath}/socket-token`);
         // a reconnect may have missed notifications, so reload the list
         socket.io.on("reconnect", load);
         socket.on("notification", (notification) => {
@@ -41,23 +41,23 @@ export default function NotificationsProvider({ children }) {
             active = false;
             socket.disconnect();
         };
-    }, [dismissToast]);
+    }, [basePath, dismissToast]);
 
     const openNotification = useCallback((notification) => {
         dismissToast(notification.id);
         if (!notification.isRead) {
             setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, isRead: true } : item));
             setUnreadCount((count) => Math.max(count - 1, 0));
-            markNotificationRead(notification.id).catch(() => {});
+            markNotificationRead(notification.id, basePath).catch(() => {});
         }
         if (notification.link) navigate(notification.link);
-    }, [dismissToast, navigate]);
+    }, [basePath, dismissToast, navigate]);
 
     const markAllRead = useCallback(() => {
         setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
         setUnreadCount(0);
-        markAllNotificationsRead().catch(() => {});
-    }, []);
+        markAllNotificationsRead(basePath).catch(() => {});
+    }, [basePath]);
 
     const value = useMemo(() => ({ notifications, unreadCount, openNotification, markAllRead }), [notifications, unreadCount, openNotification, markAllRead]);
 
