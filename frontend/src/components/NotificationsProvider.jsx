@@ -64,7 +64,7 @@ export default function NotificationsProvider({ children, basePath = "/client" }
     return (
         <NotificationsContext.Provider value={value}>
             {children}
-            <div className="pointer-events-none fixed bottom-4 right-4 z-[90] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3" aria-live="polite">
+            <div className="pointer-events-none fixed bottom-4 z-[90] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-3" style={{ left: "1rem", right: "auto" }} aria-live="polite">
                 {toasts.map((toast) => (
                     <div key={toast.id} className="dashboard-rise pointer-events-auto flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-[#0b0b0b]/95 p-4 text-white shadow-2xl shadow-black backdrop-blur-xl" role="status">
                         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
