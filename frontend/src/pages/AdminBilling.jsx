@@ -51,8 +51,9 @@ export default function AdminBilling() {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [detail, setDetail] = useState(null);
-    const [eligible, setEligible] = useState([]);
-    const [discountKey, setDiscountKey] = useState("");
+    const [discountAmount, setDiscountAmount] = useState("");
+    const [rewardKey, setRewardKey] = useState("");
+    const [rewardPoints, setRewardPoints] = useState("200");
     const [payForm, setPayForm] = useState({ amount: "", method: "cash" });
     const [saving, setSaving] = useState(false);
 
@@ -97,28 +98,21 @@ export default function AdminBilling() {
             const { data } = await api.get(`/admin/bills/${bill.id}`);
             setDetail(data.bill);
             setPayForm({ amount: data.bill.remainingBalance || "", method: "cash" });
-            setDiscountKey("");
-            if (data.bill.payerUser && data.bill.status !== "paid") {
-                const { data: discountData } = await api.get(`/admin/bills/${bill.id}/discounts`);
-                setEligible(discountData.discounts || []);
-            } else {
-                setEligible([]);
-            }
+            setDiscountAmount(data.bill.discountAmount || "");
+            setRewardKey("");
+            setRewardPoints("200");
         } catch {
             setError("Bill details could not be loaded.");
         }
     };
 
     const applyDiscount = async () => {
-        const selected = eligible.find((item) => item.key === discountKey);
-        if (!selected || !detail) return;
+        if (!detail) return;
         setSaving(true);
         setError(null);
         try {
             const { data } = await api.patch(`/admin/bills/${detail.id}/discount`, {
-                type: selected.type,
-                name: selected.name,
-                percent: selected.percent
+                amount: Number(discountAmount)
             });
             setDetail(data.bill);
             setPayForm((form) => ({ ...form, amount: data.bill.remainingBalance }));
@@ -126,6 +120,27 @@ export default function AdminBilling() {
             setSuccess("Discount applied");
         } catch (err) {
             setError(err.response?.data?.message || "Discount could not be applied");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const redeemReward = async () => {
+        if (!detail || !rewardKey) return;
+        setSaving(true);
+        setError(null);
+        try {
+            const { data } = await api.post(`/admin/bills/${detail.id}/loyalty-reward`, {
+                reward: rewardKey,
+                points: Number(rewardPoints)
+            });
+            setDetail(data.bill);
+            setDiscountAmount(data.bill.discountAmount || "");
+            setPayForm((form) => ({ ...form, amount: data.bill.remainingBalance }));
+            await loadBills();
+            setSuccess("Loyalty reward redeemed");
+        } catch (err) {
+            setError(err.response?.data?.message || "Loyalty reward could not be redeemed");
         } finally {
             setSaving(false);
         }
@@ -210,15 +225,6 @@ export default function AdminBilling() {
                             </table>
                         </div>
 
-                        {detail.discountBreakdown?.length > 0 && (
-                            <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 text-sm">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Discount breakdown</p>
-                                {detail.discountBreakdown.map((item) => (
-                                    <p key={item.name} className="mt-2 text-neutral-300">{item.name} · {item.percent}% · {formatMoney(item.amount)}</p>
-                                ))}
-                            </div>
-                        )}
-
                         <h3 className="mt-8 text-sm font-bold uppercase tracking-wider text-neutral-500">Payment history</h3>
                         {detail.payments.length ? (
                             <div className="mt-3 space-y-2">
@@ -236,16 +242,26 @@ export default function AdminBilling() {
                         {detail.status !== "paid" && (
                             <div className="mt-8 grid gap-6 lg:grid-cols-2">
                                 <div className="rounded-2xl border border-white/[0.08] p-4">
-                                    <p className="text-sm font-bold">Apply discount</p>
-                                    {detail.payerUser ? (
-                                        <>
-                                            <select value={discountKey} onChange={(e) => setDiscountKey(e.target.value)} className={`${inputClass} mt-3 appearance-none`}>
-                                                <option value="" className="bg-neutral-900">Select eligible discount</option>
-                                                {eligible.map((item) => <option key={item.key} value={item.key} className="bg-neutral-900">{item.name} · {item.percent}%</option>)}
-                                            </select>
-                                            <button type="button" disabled={!discountKey || saving} onClick={applyDiscount} className="mt-3 w-full rounded-xl bg-white/[0.06] py-2.5 text-sm font-bold hover:bg-white/[0.1] disabled:text-neutral-600">Apply</button>
-                                        </>
-                                    ) : <p className="mt-2 text-xs text-neutral-600">Discounts are available for registered payers only.</p>}
+                                    <p className="text-sm font-bold">Manual discount</p>
+                                    <p className="mt-1 text-xs text-neutral-500">Admin-only concession. It is deducted directly from this bill.</p>
+                                    <input type="number" min="0" step="1" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} className={`${inputClass} mt-3`} placeholder="Discount amount" />
+                                    <button type="button" disabled={saving || detail.loyaltyRedemption} onClick={applyDiscount} className="mt-3 w-full rounded-xl bg-white/[0.06] py-2.5 text-sm font-bold hover:bg-white/[0.1] disabled:text-neutral-600">Save discount</button>
+                                    {detail.payerUser && (
+                                        <div className="mt-5 border-t border-white/[0.08] pt-4">
+                                            <p className="text-sm font-bold">Loyalty rewards</p>
+                                            <p className="mt-1 text-xs text-neutral-500">Available points: <span className="font-bold text-white">{detail.loyaltyPoints || 0}</span></p>
+                                            {detail.eligibleRewards?.length ? (
+                                                <>
+                                                    <select value={rewardKey} onChange={(e) => setRewardKey(e.target.value)} className={`${inputClass} mt-3 appearance-none`}>
+                                                        <option value="" className="bg-neutral-900">Choose a reward</option>
+                                                        {detail.eligibleRewards.map((reward) => <option key={reward.key} value={reward.key} className="bg-neutral-900">{reward.label} · {reward.points} points minimum</option>)}
+                                                    </select>
+                                                    {rewardKey === "century_discount" && <input type="number" min="200" step="1" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)} className={`${inputClass} mt-3`} placeholder="Points to redeem" />}
+                                                    <button type="button" disabled={!rewardKey || saving} onClick={redeemReward} className="mt-3 w-full rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:text-neutral-600">Redeem reward</button>
+                                                </>
+                                            ) : <p className="mt-2 text-xs text-neutral-600">Rewards become available at 200 points for the matching game type.</p>}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="rounded-2xl border border-white/[0.08] p-4">
                                     <p className="text-sm font-bold">Record payment</p>

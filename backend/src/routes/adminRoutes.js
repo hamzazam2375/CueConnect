@@ -23,10 +23,10 @@ import {
 import {
     listBills,
     getBill,
-    listBillDiscounts,
     applyBillDiscount,
     recordBillPayment,
-    downloadBillReceipt
+    downloadBillReceipt,
+    redeemBillReward
 } from "../controllers/adminBillingController.js";
 import Bill from "../models/bill.js";
 import {
@@ -60,11 +60,11 @@ router.get("/games/:id", protect, authorize("admin"), getGame);
 router.patch("/games/:id/stop", protect, authorize("admin"), stopGame);
 
 router.get("/bills", protect, authorize("admin"), listBills);
-router.get("/bills/:id/discounts", protect, authorize("admin"), listBillDiscounts);
 router.get("/bills/:id/receipt", protect, authorize("admin"), downloadBillReceipt);
 router.get("/bills/:id", protect, authorize("admin"), getBill);
 router.patch("/bills/:id/discount", protect, authorize("admin"), applyBillDiscount);
 router.post("/bills/:id/payments", protect, authorize("admin"), recordBillPayment);
+router.post("/bills/:id/loyalty-reward", protect, authorize("admin"), redeemBillReward);
 
 router.get("/finance", protect, authorize("admin"), getFinanceOverview);
 router.get("/finance/income", protect, authorize("admin"), listFinanceIncome);

@@ -9,7 +9,6 @@ const sidebarItems = [
     { key: "tables",    label: "Table Management",    icon: "table",    href: "/admin/tables" },
     { key: "games",     label: "Games",               icon: "gamepad",  href: "/admin/games" },
     { key: "billing",   label: "Billing",             icon: "dollar",   href: "/admin/billing" },
-    { key: "discounts", label: "Discounts & Loyalty",  icon: "tag",     href: "/admin/discounts" },
     { key: "bookings",  label: "Bookings & Events",   icon: "calendar", href: "/admin/bookings" },
     { key: "customers", label: "Customers",            icon: "users",   href: "/admin/customers" },
     { key: "finance",   label: "Finance & Reports",    icon: "chart",   href: "/admin/finance" },

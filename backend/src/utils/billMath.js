@@ -9,6 +9,11 @@ export const createBillReference = () => {
     return `BILL-${stamp}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 };
 
+export const ensureBillReference = (bill) => {
+    if (!bill.reference) bill.reference = createBillReference();
+    return bill.reference;
+};
+
 export const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 export const syncBillTotals = (bill) => {
@@ -46,10 +51,13 @@ export const syncBillTotals = (bill) => {
 
 export const reapplyDiscountBreakdown = (bill) => {
     const original = roundMoney(bill.originalAmount || 0);
-    bill.discountBreakdown = (bill.discountBreakdown || []).map((item) => ({
+    const breakdown = (bill.discountBreakdown || []).map((item) => ({
         ...item,
         amount: roundMoney(original * (Number(item.percent) || 0) / 100)
     }));
-    bill.discountAmount = roundMoney(bill.discountBreakdown.reduce((sum, item) => sum + item.amount, 0));
+    bill.discountBreakdown = breakdown;
+    if (breakdown.length) {
+        bill.discountAmount = roundMoney(breakdown.reduce((sum, item) => sum + item.amount, 0));
+    }
     return syncBillTotals(bill);
 };

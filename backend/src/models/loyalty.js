@@ -34,6 +34,12 @@ const loyaltySchema = new mongoose.Schema(
                     required: true
                 },
 
+                paymentId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "Payment",
+                    default: null
+                },
+
                 description: {
                     type: String,
                     trim: true
