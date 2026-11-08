@@ -53,6 +53,26 @@ const billSchema = new mongoose.Schema(
             default: []
         },
 
+        loyaltyRedemption: {
+            reward: {
+                type: String,
+                enum: ["free_frame", "century_discount"],
+                default: null
+            },
+            points: {
+                type: Number,
+                default: 0
+            },
+            amount: {
+                type: Number,
+                default: 0
+            },
+            redeemedAt: {
+                type: Date,
+                default: null
+            }
+        },
+
         totalAmount: {
             type: Number,
             default: 0
