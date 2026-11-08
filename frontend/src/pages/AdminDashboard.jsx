@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import AdminLayout, { Icon } from "../components/AdminLayout";
@@ -139,6 +139,8 @@ function getTimeAgo(dateStr) {
     return `${days}d ago`;
 }
 
+const formatWaitlistDate = (value) => value ? new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+
 export default function AdminDashboard() {
     const { user, error } = useSelector((state) => state.auth);
     const [stats, setStats] = useState(null);
@@ -149,6 +151,11 @@ export default function AdminDashboard() {
     const [expenseForm, setExpenseForm] = useState({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
     const [expenseSaving, setExpenseSaving] = useState(false);
     const [expenseError, setExpenseError] = useState(null);
+    const [waitlist, setWaitlist] = useState([]);
+    const [waitlistLoading, setWaitlistLoading] = useState(true);
+    const [waitlistSaving, setWaitlistSaving] = useState(false);
+    const [waitlistError, setWaitlistError] = useState("");
+    const [waitlistOpen, setWaitlistOpen] = useState(false);
     const navigate = useNavigate();
 
     const reloadStats = () => api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
@@ -162,6 +169,30 @@ export default function AdminDashboard() {
             .catch(() => setStats(null))
             .finally(() => setStatsLoading(false));
     }, []);
+
+    const loadWaitlist = useCallback(() => api.get("/admin/waitlist")
+        .then(({ data }) => setWaitlist(data.waitlist || []))
+        .catch(() => setWaitlist([]))
+        .finally(() => setWaitlistLoading(false)), []);
+
+    useEffect(() => {
+        loadWaitlist();
+    }, [loadWaitlist]);
+
+    const notifyWaitlistCustomer = async (entry) => {
+        setWaitlistSaving(true);
+        setWaitlistError("");
+        try {
+            await api.patch(`/admin/waitlist/${entry.id}/notify`);
+            await loadWaitlist();
+            setStartSuccess("Customer notified that the slot is free");
+            setTimeout(() => setStartSuccess(null), 3000);
+        } catch (requestError) {
+            setWaitlistError(requestError.response?.data?.message || "Customer could not be notified");
+        } finally {
+            setWaitlistSaving(false);
+        }
+    };
 
     const netProfit = (stats?.todayIncome ?? 0) - (stats?.todayExpenses ?? 0);
 
@@ -241,6 +272,22 @@ export default function AdminDashboard() {
                     </form>
                 </ModalShell>
             )}
+            {waitlistOpen && (
+                <ModalShell title={`Waitlist (${waitlist.length})`} onClose={() => setWaitlistOpen(false)}>
+                    <div className="space-y-2">
+                        {waitlistError && <p className="rounded-lg bg-red-500/10 px-2.5 py-2 text-xs text-red-400">{waitlistError}</p>}
+                        {waitlistLoading ? <div className="h-24 animate-pulse rounded-xl bg-white/[0.03]" /> : waitlist.length ? waitlist.map((entry) => (
+                            <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-neutral-200">{entry.customer?.name}</p>
+                                    <p className="truncate text-xs text-neutral-500">{entry.table?.name} · {formatWaitlistDate(entry.date)}</p>
+                                </div>
+                                {entry.status === "waiting" && <button type="button" disabled={waitlistSaving} onClick={() => notifyWaitlistCustomer(entry)} className="shrink-0 rounded-lg bg-emerald-600/80 px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50">Mark free</button>}
+                            </div>
+                        )) : <p className="rounded-xl border border-dashed border-white/[0.08] py-8 text-center text-xs text-neutral-500">No customers are waiting.</p>}
+                    </div>
+                </ModalShell>
+            )}
             {error && <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">{error}</div>}
             {startSuccess && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">{startSuccess}</div>}
 
@@ -285,7 +332,7 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                                 <QuickActionButton icon="gamepad" label="Start Game" onClick={() => setStartOpen(true)} color="violet" />
                                 <QuickActionButton icon="calendar" label="View Bookings" onClick={() => navigate("/admin/bookings")} color="blue" />
-                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => navigate("/admin/bookings")} color="amber" />
+                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => setWaitlistOpen(true)} color="amber" />
                                 <QuickActionButton icon="arrowDown" label="Add Expense" onClick={() => { setExpenseError(null); setExpenseOpen(true); }} color="rose" />
                             </div>
                         </article>

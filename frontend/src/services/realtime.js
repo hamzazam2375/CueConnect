@@ -8,9 +8,9 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL
 
 // The cross-site connection cannot use the auth cookie, so each (re)connect first fetches
 // a short-lived token through /api, where the cookie works.
-export const connectRealtime = () => io(SOCKET_URL, {
+export const connectRealtime = (tokenPath = "/client/socket-token") => io(SOCKET_URL, {
     auth: (send) => {
-        api.get("/client/socket-token")
+        api.get(tokenPath)
             .then(({ data }) => send({ token: data.token }))
             .catch(() => send({ token: "" }));
     }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import NotificationsProvider from "./NotificationsProvider";
+import NotificationBell from "./NotificationBell";
 import { logout } from "../store/authSlice";
 import Logo from "./Logo";
 
@@ -15,7 +17,7 @@ const sidebarItems = [
     { key: "settings",  label: "Settings",             icon: "settings", href: "/admin/settings" },
 ];
 
-const implementedKeys = ["dashboard", "tables", "games", "billing", "customers", "finance", "settings"];
+const implementedKeys = ["dashboard", "tables", "games", "billing", "bookings", "customers", "finance", "settings"];
 
 export function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -77,7 +79,7 @@ function SideNavItem({ item, active }) {
     );
 }
 
-export default function AdminLayout({ title, children }) {
+function AdminLayoutContent({ title, children }) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
@@ -148,10 +150,7 @@ export default function AdminLayout({ title, children }) {
                             </div>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <button type="button" className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white" aria-label="Notifications">
-                                <Icon name="bell" className="h-[18px] w-[18px]" />
-                                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-black" />
-                            </button>
+                            <NotificationBell />
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
                             <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
                                 <Icon name="logout" className="h-[18px] w-[18px]" />
@@ -177,4 +176,8 @@ export default function AdminLayout({ title, children }) {
             </div>
         </div>
     );
+}
+
+export default function AdminLayout({ title, children }) {
+    return <NotificationsProvider basePath="/admin"><AdminLayoutContent title={title}>{children}</AdminLayoutContent></NotificationsProvider>;
 }

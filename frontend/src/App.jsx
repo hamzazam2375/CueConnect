@@ -36,6 +36,7 @@ const AdminCustomers = lazy(() => import("./pages/AdminCustomers"));
 const AdminFinance = lazy(() => import("./pages/AdminFinance"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AdminBookingsEvents = lazy(() => import("./pages/AdminBookingsEvents"));
 
 export default function App() {
     const dispatch = useDispatch();
@@ -77,6 +78,7 @@ export default function App() {
                         <Route path="/admin/customers" element={<AdminCustomers />} />
                         <Route path="/admin/finance" element={<AdminFinance />} />
                         <Route path="/admin/settings" element={<AdminSettings />} />
+                        <Route path="/admin/bookings" element={<AdminBookingsEvents />} />
                     </Route>
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route path="/admin/register" element={<AdminSignup />} />

@@ -4,7 +4,7 @@ import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
 import Waitlist from "../models/waitlist.js";
-import { notifyUser } from "../services/notifications.js";
+import { notifyBranchAdmins, notifyUser } from "../services/notifications.js";
 import { POINT_VALUE, maxRedeemablePoints, redeemPoints, restorePoints } from "../services/loyalty.js";
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
@@ -666,6 +666,14 @@ export const joinWaitlist = async (req, res) => {
             startTime: schedule.startTime,
             endTime: schedule.endTime,
             duration: schedule.duration
+        });
+
+        await notifyBranchAdmins({
+            branchId: table.branchId,
+            type: "waitlist",
+            title: "New waitlist request",
+            message: `${req.user.firstName} ${req.user.lastName} is waiting for ${table.name} on ${formatDay(schedule.date)} at ${formatClock(schedule.startTime)}.`,
+            link: "/admin/dashboard"
         });
 
         const created = await populateWaitlist(Waitlist.findById(entry._id));

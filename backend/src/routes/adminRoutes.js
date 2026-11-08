@@ -46,6 +46,26 @@ import {
     updateAdminProfile,
     updateAdminPassword
 } from "../controllers/adminSettingsController.js";
+import {
+    listAdminBookings,
+    updateAdminBooking,
+    getAdminBookingProof,
+    listAdminEvents,
+    createAdminEvent,
+    updateAdminEvent,
+    updateAdminEventStatus,
+    listAdminEventRegistrations,
+    updateAdminEventRegistration,
+    getAdminEventRegistrationProof,
+    listAdminWaitlist,
+    notifyWaitlistCustomer
+} from "../controllers/adminBookingEventController.js";
+import {
+    getSocketToken,
+    listNotifications,
+    markNotificationRead,
+    markAllNotificationsRead
+} from "../controllers/clientNotificationController.js";
 
 const router = express.Router();
 
@@ -58,6 +78,23 @@ router.get("/games/history", protect, authorize("admin"), listGameHistory);
 router.post("/games", protect, authorize("admin"), startGame);
 router.get("/games/:id", protect, authorize("admin"), getGame);
 router.patch("/games/:id/stop", protect, authorize("admin"), stopGame);
+
+router.get("/bookings", protect, authorize("admin"), listAdminBookings);
+router.patch("/bookings/:id", protect, authorize("admin"), updateAdminBooking);
+router.get("/bookings/:id/payment-proof", protect, authorize("admin"), getAdminBookingProof);
+router.get("/waitlist", protect, authorize("admin"), listAdminWaitlist);
+router.patch("/waitlist/:id/notify", protect, authorize("admin"), notifyWaitlistCustomer);
+router.get("/socket-token", protect, authorize("admin"), getSocketToken);
+router.get("/notifications", protect, authorize("admin"), listNotifications);
+router.patch("/notifications/:id/read", protect, authorize("admin"), markNotificationRead);
+router.patch("/notifications/read-all", protect, authorize("admin"), markAllNotificationsRead);
+router.get("/events", protect, authorize("admin"), listAdminEvents);
+router.post("/events", protect, authorize("admin"), createAdminEvent);
+router.patch("/events/:id", protect, authorize("admin"), updateAdminEvent);
+router.patch("/events/:id/status", protect, authorize("admin"), updateAdminEventStatus);
+router.get("/events/:id/registrations", protect, authorize("admin"), listAdminEventRegistrations);
+router.patch("/event-registrations/:id", protect, authorize("admin"), updateAdminEventRegistration);
+router.get("/event-registrations/:id/payment-proof", protect, authorize("admin"), getAdminEventRegistrationProof);
 
 router.get("/bills", protect, authorize("admin"), listBills);
 router.get("/bills/:id/receipt", protect, authorize("admin"), downloadBillReceipt);
