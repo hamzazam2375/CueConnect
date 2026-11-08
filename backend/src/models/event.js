@@ -40,12 +40,6 @@ const eventSchema = new mongoose.Schema(
             default: 0
         },
 
-        // discounted fee for members
-        memberFee: {
-            type: Number,
-            default: 0
-        },
-
         // e.g. "PKR 25,000" or "Trophy + PKR 10,000"
         prize: {
             type: String,

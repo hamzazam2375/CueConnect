@@ -5,6 +5,8 @@ import User from "../models/user.js";
 import Branch from "../models/branch.js";
 import { sendOtpEmail } from "../services/emailService.js";
 import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOptions.js";
+import { passwordError } from "../utils/passwordPolicy.js";
+import { confirmVerificationCode, findClientForVerification, normalizeEmail, resendWait, sendVerificationCode, RESEND_COOLDOWN_SECONDS } from "../services/emailVerification.js";
 import { allocateCustomerCode } from "../utils/customerCode.js";
 
 // track failed secret key attempts per IP
@@ -28,6 +30,28 @@ const serializeAuthUser = (user) => ({
     branchId: user.branchId || null,
     createdAt: user.createdAt
 });
+
+// signs the client in: sets the auth cookie
+const startClientSession = (res, user) => {
+    const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+    );
+    res.cookie("token", token, authCookieOptions);
+};
+
+// emails a code unless one went out moments ago; describes what happened for the client
+const requestVerification = async (user) => {
+    const wait = resendWait(user);
+    const emailSent = wait === 0 ? await sendVerificationCode(user) : true;
+    return {
+        needsVerification: true,
+        email: user.email,
+        emailSent,
+        resendIn: wait || RESEND_COOLDOWN_SECONDS
+    };
+};
 
 // generate a 6-digit OTP
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
@@ -306,7 +330,8 @@ export const registerAdmin = async (req, res) => {
 // client registration
 export const registerClient = async (req, res) => {
     try {
-        const { firstName, lastName, email, password } = req.body;
+        const { firstName, lastName, password } = req.body;
+        const email = normalizeEmail(req.body.email);
 
         if (!firstName || !lastName || !email || !password) {
             return res.status(400).json({ message: "All fields are required" });
@@ -318,15 +343,15 @@ export const registerClient = async (req, res) => {
             return res.status(400).json({ message: "Please enter a valid email address" });
         }
 
-        // validate password strength
-        if (password.length < 8) {
-            return res.status(400).json({ message: "Password must be at least 8 characters" });
+        const weakPassword = passwordError(password);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
         }
 
         // check if email already taken
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(409).json({ message: "An account with this email already exists" });
+            return res.status(409).json({ message: "An account with this email already exists. Sign in instead" });
         }
 
         // hash password and create client
@@ -338,18 +363,16 @@ export const registerClient = async (req, res) => {
             password: hashedPassword,
             role: "client",
             customerCode: await allocateCustomerCode(),
-            isActive: true
+            isActive: true,
+            emailVerified: false
         });
 
+        const verification = await requestVerification(await findClientForVerification(client.email));
         res.status(201).json({
-            message: "Account created successfully",
-            user: {
-                id: client._id,
-                firstName: client.firstName,
-                lastName: client.lastName,
-                email: client.email,
-                role: client.role
-            }
+            message: verification.emailSent
+                ? `Account created. We sent a 6-digit code to ${client.email}`
+                : "Account created, but the code email could not be sent. Tap resend to try again",
+            ...verification
         });
     } catch (error) {
         console.error("Client registration error:", error.message);
@@ -360,14 +383,15 @@ export const registerClient = async (req, res) => {
 // client login
 export const clientLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { password } = req.body;
+        const email = normalizeEmail(req.body.email);
 
         if (!email || !password) {
             return res.status(400).json({ message: "Email and password are required" });
         }
 
         // find user and check if they're a client
-        const user = await User.findOne({ email });
+        const user = await findClientForVerification(email);
         if (!user || user.role !== "client") {
             return res.status(401).json({ message: "Invalid email or password" });
         }
@@ -381,14 +405,17 @@ export const clientLogin = async (req, res) => {
             return res.status(401).json({ message: "Invalid email or password" });
         }
 
-        // generate JWT
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
+        if (!user.emailVerified) {
+            const verification = await requestVerification(user);
+            return res.status(403).json({
+                message: verification.emailSent
+                    ? `Verify your email to sign in. We sent a 6-digit code to ${user.email}`
+                    : "Verify your email to sign in. The code email could not be sent, tap resend to try again",
+                ...verification
+            });
+        }
 
-        res.cookie("token", token, authCookieOptions);
+        startClientSession(res, user);
 
         res.status(200).json({
             message: "Login successful",
@@ -396,6 +423,54 @@ export const clientLogin = async (req, res) => {
         });
     } catch (error) {
         console.error("Client login error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// client enters the emailed code: verifies the email and signs them in
+export const verifyClientEmail = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        if (!email || !code) {
+            return res.status(400).json({ message: "Email and code are required" });
+        }
+
+        const result = await confirmVerificationCode(email, code);
+        if (result.error) {
+            return res.status(result.status).json({ message: result.error });
+        }
+        if (result.user.isActive === false) {
+            return res.status(403).json({ message: "This account is inactive. Contact the club to reactivate it." });
+        }
+
+        startClientSession(res, result.user);
+        res.status(200).json({
+            message: "Email verified",
+            user: serializeAuthUser(result.user)
+        });
+    } catch (error) {
+        console.error("Verify client email error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// sends a fresh code; the reply is the same whether or not the email has an account waiting
+export const resendClientCode = async (req, res) => {
+    try {
+        const user = await findClientForVerification(req.body.email);
+        if (user && !user.emailVerified) {
+            const wait = resendWait(user);
+            if (wait > 0) {
+                return res.status(429).json({ message: `Please wait ${wait} seconds before requesting another code`, resendIn: wait });
+            }
+            if (!await sendVerificationCode(user)) {
+                return res.status(502).json({ message: "The code email could not be sent. Please try again" });
+            }
+        }
+
+        res.status(200).json({ message: "If this email is waiting for verification, a new code is on its way", resendIn: RESEND_COOLDOWN_SECONDS });
+    } catch (error) {
+        console.error("Resend client code error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 };
@@ -493,8 +568,9 @@ export const changeClientPassword = async (req, res) => {
             return res.status(400).json({ message: "Current password and new password are required" });
         }
 
-        if (newPassword.length < 8) {
-            return res.status(400).json({ message: "New password must be at least 8 characters" });
+        const weakPassword = passwordError(newPassword);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
         }
 
         if (currentPassword === newPassword) {

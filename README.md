@@ -1,6 +1,6 @@
 # CueConnect
 
-CueConnect is a web-based management and booking system for a snooker lounge. It provides separate features for **Admins** and **Clients**, allowing the lounge owner to manage tables, prices, games, bookings, memberships, loyalty points, events, income, and expenses, while customers can book tables, manage their memberships, track loyalty points, and view their history.
+CueConnect is a web-based management and booking system for a snooker lounge. It provides separate features for **Admins** and **Clients**, allowing the lounge owner to manage tables, prices, games, bookings, loyalty points, events, income, and expenses, while customers can book tables, earn and spend loyalty points, join events, and view their history.
 
 ## Project Summary
 
@@ -35,8 +35,6 @@ CueConnect provides a centralized platform for managing the daily operations of 
 * Pay an advance for bookings
 * Upload payment proof
 * Edit or cancel bookings
-* Purchase memberships
-* View membership details, discounts, rules, and expiry
 * View loyalty points and available discounts
 * View booking and game history
 * View upcoming tournaments and events
@@ -122,7 +120,6 @@ Example API areas include:
 * Bookings
 * Games
 * Payments
-* Memberships
 * Loyalty points
 * Events
 * Waitlists
@@ -196,32 +193,24 @@ Other
 
 ## 5. Loyalty System
 
-* Award loyalty points after payment
+* Award 10 loyalty points to the player for every completed game
 * Track customer loyalty points
-* Apply loyalty discounts
+* Apply loyalty discounts (clients spend points on bookings: 1 point = PKR 1, up to 20% of the total)
 * Display loyalty information to clients
 
-## 6. Membership System
-
-* Purchase memberships
-* View membership details
-* Track expiry dates
-* Display membership discounts and rules
-
-## 7. Events & Tournaments
+## 6. Events & Tournaments
 
 * Display upcoming events
 * Create/manage tournaments
-* Allow clients to register
-* Different registration rules for members and non-members
+* Allow clients to register (paid entry uses the payment proof flow)
 
-## 8. Waitlist & Notifications
+## 7. Waitlist & Notifications
 
 * Join a waitlist when a table is busy
 * Monitor table availability
 * Send real-time notifications when a table becomes available
 
-## 9. Financial Management
+## 8. Financial Management
 
 * Record income
 * Record expenses
@@ -230,13 +219,13 @@ Other
 * View yearly income and expenses
 * Generate downloadable PDF reports
 
-## 10. Customer History
+## 9. Customer History
 
 * View booking history
 * View games played
 * View payments
 * View loyalty points
-* View membership information
+* View event registrations
 
 ---
 
@@ -274,7 +263,7 @@ Other
 * Reduce manual booking and billing work
 * Allow customers to easily book tables online
 * Provide centralized customer and game records
-* Manage memberships and loyalty points
+* Reward regular players with loyalty points
 * Provide financial tracking and reporting
 * Provide real-time table and waitlist notifications
 * Build a responsive, secure, and performance-oriented web application

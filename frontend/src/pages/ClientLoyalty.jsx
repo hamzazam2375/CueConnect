@@ -72,8 +72,8 @@ export default function ClientLoyalty() {
                 </section>
 
                 <section className="mt-6 grid gap-4 sm:grid-cols-3" aria-label="How loyalty points work">
-                    <Step index={0} icon="cue" title="Play and pay" text={`Earn 1 point for every PKR ${rules.pkrPerPointEarned} you pay at the club.`} />
-                    <Step index={1} icon="star" title="Collect points" text="Points are added when the club records your payment, and you get a notification." />
+                    <Step index={0} icon="cue" title="Play games" text={`Earn ${rules.pointsPerGame} points for every game you play at any Goodshot branch.`} />
+                    <Step index={1} icon="star" title="Collect points" text="Points are added when the club ends your game, and you get a notification." />
                     <Step index={2} icon="ticket" title="Save on bookings" text={`Each point is PKR ${rules.pointValue} off. Use points for up to ${maxPercent}% of a booking total.`} />
                 </section>
 

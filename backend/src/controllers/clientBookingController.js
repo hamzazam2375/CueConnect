@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
-import Membership from "../models/membership.js";
 import Waitlist from "../models/waitlist.js";
 import { notifyUser } from "../services/notifications.js";
 import { POINT_VALUE, maxRedeemablePoints, redeemPoints, restorePoints } from "../services/loyalty.js";
@@ -21,23 +20,8 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const ADVANCE_RATE = 0.5;
 const getAdvanceAmount = (total) => Math.ceil(total * ADVANCE_RATE);
 
-const priceBooking = (hourlyRate, duration, discount) => Math.round(hourlyRate * duration * (100 - discount) / 100);
-
-// total after the membership discount and any loyalty points spent on the booking
-const bookingTotal = (hourlyRate, duration, discount, pointsUsed = 0) => Math.max(priceBooking(hourlyRate, duration, discount) - pointsUsed * POINT_VALUE, 0);
-
-// the client's best running membership that covers this branch
-const findMemberDiscount = (userId, branchId) => Membership.findOne({
-    user: userId,
-    status: "active",
-    expiryDate: { $gt: new Date() },
-    $or: [{ branchId }, { allBranches: true }]
-}).sort({ discount: -1 });
-
-// discount applies only when the membership is still running when the slot starts
-const discountForSlot = (membership, date, startTime) => (
-    membership && membership.expiryDate > new Date(date.getTime() + startTime * 60 * 1000) ? membership.discount : 0
-);
+// total after any loyalty points spent on the booking
+const bookingTotal = (hourlyRate, duration, pointsUsed = 0) => Math.max(hourlyRate * duration - pointsUsed * POINT_VALUE, 0);
 
 const DEFAULT_OPENING_TIME = 12 * 60;
 const DEFAULT_CLOSING_TIME = 26 * 60;
@@ -117,8 +101,6 @@ const serializeBooking = (booking) => {
         duration: booking.duration,
         hourlyRate: booking.hourlyRate,
         subtotal: booking.hourlyRate * booking.duration,
-        membershipDiscount: booking.membershipDiscount,
-        discountAmount: booking.hourlyRate * booking.duration - priceBooking(booking.hourlyRate, booking.duration, booking.membershipDiscount),
         loyaltyPointsUsed: booking.loyaltyPointsUsed,
         loyaltyDiscount: booking.loyaltyPointsUsed * POINT_VALUE,
         total: booking.totalAmount,
@@ -311,19 +293,10 @@ export const listBranchTables = async (req, res) => {
             return res.status(404).json({ message: "Branch not found" });
         }
 
-        const [tables, membership] = await Promise.all([
-            Table.find({ branchId: branch._id }).sort({ name: 1 }),
-            findMemberDiscount(req.user._id, branch._id)
-        ]);
+        const tables = await Table.find({ branchId: branch._id }).sort({ name: 1 });
         res.status(200).json({
             branch: serializeBranch(branch, tables),
-            tables: tables.map(serializeTable),
-            // bookings that start before expiryDate get `discount` percent off
-            membership: membership ? {
-                plan: membership.plan.charAt(0).toUpperCase() + membership.plan.slice(1),
-                discount: membership.discount,
-                expiryDate: membership.expiryDate
-            } : null
+            tables: tables.map(serializeTable)
         });
     } catch (error) {
         console.error("List branch tables error:", error.message);
@@ -432,13 +405,12 @@ export const createClientBooking = async (req, res) => {
             return fail(409, "This table is already booked for the selected time");
         }
 
-        const membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), schedule.date, schedule.startTime);
         const loyaltyPointsUsed = Number(req.body.loyaltyPoints || 0);
         if (!Number.isInteger(loyaltyPointsUsed) || loyaltyPointsUsed < 0) {
             return fail(400, "Loyalty points must be a whole number");
         }
 
-        const maxPoints = maxRedeemablePoints(priceBooking(table.pricePerHour, schedule.duration, membershipDiscount));
+        const maxPoints = maxRedeemablePoints(table.pricePerHour * schedule.duration);
         if (loyaltyPointsUsed > maxPoints) {
             return fail(400, `You can use up to ${maxPoints} points on this booking`);
         }
@@ -451,7 +423,7 @@ export const createClientBooking = async (req, res) => {
             redeemed = loyaltyPointsUsed;
         }
 
-        const totalAmount = bookingTotal(table.pricePerHour, schedule.duration, membershipDiscount, loyaltyPointsUsed);
+        const totalAmount = bookingTotal(table.pricePerHour, schedule.duration, loyaltyPointsUsed);
         let booking;
         for (let attempt = 0; attempt < 5; attempt += 1) {
             try {
@@ -465,7 +437,6 @@ export const createClientBooking = async (req, res) => {
                     endTime: schedule.endTime,
                     duration: schedule.duration,
                     hourlyRate: table.pricePerHour,
-                    membershipDiscount,
                     loyaltyPointsUsed,
                     totalAmount,
                     advanceAmount: getAdvanceAmount(totalAmount),
@@ -576,8 +547,7 @@ export const rescheduleClientBooking = async (req, res) => {
         booking.startTime = schedule.startTime;
         booking.endTime = schedule.endTime;
         booking.duration = schedule.duration;
-        booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, booking.branchId._id), schedule.date, schedule.startTime);
-        booking.totalAmount = bookingTotal(booking.hourlyRate, schedule.duration, booking.membershipDiscount, booking.loyaltyPointsUsed);
+        booking.totalAmount = bookingTotal(booking.hourlyRate, schedule.duration, booking.loyaltyPointsUsed);
         await booking.save();
 
         res.status(200).json({ booking: serializeBooking(booking) });
@@ -622,8 +592,7 @@ export const changeClientBookingTable = async (req, res) => {
         const previousSlot = { tableId: booking.table._id, date: booking.date, startTime: booking.startTime, endTime: booking.endTime };
         booking.table = table._id;
         booking.hourlyRate = table.pricePerHour;
-        booking.membershipDiscount = discountForSlot(await findMemberDiscount(req.user._id, table.branchId), booking.date, booking.startTime);
-        booking.totalAmount = bookingTotal(table.pricePerHour, booking.duration, booking.membershipDiscount, booking.loyaltyPointsUsed);
+        booking.totalAmount = bookingTotal(table.pricePerHour, booking.duration, booking.loyaltyPointsUsed);
         await booking.save();
 
         const updated = await populateBooking(Booking.findById(booking._id));

@@ -1,8 +1,10 @@
 import Loyalty from "../models/loyalty.js";
 import { notifyUser } from "./notifications.js";
 
-// Keep in sync with frontend/src/utils/loyalty.js.
+// 10 points for every completed game the client plays. Payment-based points are earned at 1 point
+// per PKR 10 spent. Keep in sync with frontend/src/utils/loyalty.js.
 export const PKR_PER_POINT_EARNED = 10;
+export const POINTS_PER_GAME = 10;
 export const POINT_VALUE = 1;
 export const REWARD_THRESHOLD = 200;
 export const MAX_REDEEM_RATE = 0.2;
@@ -16,15 +18,18 @@ export const getPointsBalance = async (userId) => (await Loyalty.findOne({ user:
 
 // Call when a client's payment is recorded (e.g. a game bill or a completed booking).
 // Adds the points, logs them, and notifies the client; returns the points added.
-export const awardPoints = async ({ user, branchId, amount, description, paymentId = null }) => {
+export const awardPoints = async ({ user, branchId, points: explicitPoints, amount, description, paymentId = null }) => {
     if (!user) return 0;
     const userId = user._id || user;
-    const points = pointsForPayment(amount);
+    const points = explicitPoints > 0 ? Math.floor(explicitPoints) : pointsForPayment(amount);
     if (!points) return 0;
 
     try {
+        const filter = paymentId
+            ? { user: userId, "history.paymentId": { $ne: paymentId } }
+            : { user: userId };
         const loyalty = await Loyalty.findOneAndUpdate(
-        { user: userId, "history.paymentId": { $ne: paymentId } },
+        filter,
         {
             $inc: { points },
             $push: { history: historyEntry("earned", points, description, paymentId) },
@@ -50,6 +55,24 @@ export const awardPoints = async ({ user, branchId, amount, description, payment
         link: "/client/loyalty"
     });
     return points;
+};
+
+// Call once when a game is completed. Only registered players earn points; never throws,
+// so a failure here can't undo the game itself.
+export const awardGamePoints = async (game, tableName) => {
+    if (!game.user || game.status !== "completed") return 0;
+    try {
+        const kind = game.type === "century" ? "Century game" : "Frame";
+        return await awardPoints({
+            user: game.user,
+            branchId: game.branchId,
+            points: POINTS_PER_GAME,
+            description: `${kind} on ${tableName || "a table"}`
+        });
+    } catch (error) {
+        console.error("Award game points error:", error.message);
+        return 0;
+    }
 };
 
 // takes points off atomically; resolves to false if the balance is too low

@@ -107,7 +107,7 @@ router.get("/dashboard-stats", protect, authorize("admin"), async (req, res) => 
 
         // today's income
         const todayIncomeResult = await Income.aggregate([
-            { $match: { branchId, date: { $gte: todayStart, $lte: todayEnd }, category: { $nin: ["membership", "booking"] }, sourceType: { $nin: ["booking"] }, status: { $ne: "refunded" } } },
+            { $match: { branchId, date: { $gte: todayStart, $lte: todayEnd }, category: { $ne: "booking" }, sourceType: { $nin: ["booking"] }, status: { $ne: "refunded" } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
         ]);
         const todayIncome = todayIncomeResult[0]?.total || 0;

@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyAdminKey, verifyOtp, resendOtp, registerAdmin, registerClient, clientLogin, adminLogin, logout, getMe, updateClientProfile, changeClientPassword } from "../controllers/authController.js";
+import { verifyAdminKey, verifyOtp, resendOtp, registerAdmin, registerClient, clientLogin, verifyClientEmail, resendClientCode, adminLogin, logout, getMe, updateClientProfile, changeClientPassword } from "../controllers/authController.js";
 import { protect, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -13,6 +13,8 @@ router.post("/admin/register", registerAdmin);       // step 2: complete registr
 // client registration & login
 router.post("/client/register", registerClient);
 router.post("/client/login", clientLogin);
+router.post("/client/verify-email", verifyClientEmail);  // emailed code → verified + signed in
+router.post("/client/resend-code", resendClientCode);
 
 // admin login
 router.post("/admin/login", adminLogin);

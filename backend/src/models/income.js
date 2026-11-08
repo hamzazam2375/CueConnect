@@ -27,7 +27,7 @@ const incomeSchema = new mongoose.Schema(
 
         category: {
             type: String,
-            enum: ["game", "booking", "membership", "event", "other"],
+            enum: ["game", "booking", "event", "other"],
             required: true
         },
 

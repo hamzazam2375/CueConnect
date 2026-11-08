@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Bill from "../models/bill.js";
 import Game from "../models/game.js";
 import Payment from "../models/payment.js";
+import Discount from "../models/discount.js";
 import Loyalty from "../models/loyalty.js";
 import { awardPoints, POINT_VALUE, REWARD_THRESHOLD, redeemPoints, restorePoints } from "../services/loyalty.js";
 import { customerCode, ensureBillReference, roundMoney, syncBillTotals } from "../utils/billMath.js";
@@ -99,6 +100,16 @@ const loadPayments = async (billId) => Payment.find({
 
 const loadLoyalty = (user) => user ? Loyalty.findOne({ user: user._id || user }).select("points") : null;
 
+const weekdayName = () => new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+
+const inHourWindow = (window) => {
+    if (!window || !window.includes("-")) return false;
+    const [start, end] = window.split("-");
+    const now = new Date();
+    const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    return current >= start && current <= end;
+};
+
 export const listBills = async (req, res) => {
     try {
         const { from, to, customerId, payer, status, method } = req.query;
@@ -151,6 +162,40 @@ export const getBill = async (req, res) => {
     }
 };
 
+export const listBillDiscounts = async (req, res) => {
+    try {
+        const bill = await Bill.findOne({ _id: req.params.id, branchId: req.user.branchId });
+        if (!bill) return res.status(404).json({ message: "Bill not found" });
+        if (bill.status === "paid") return res.status(400).json({ message: "Paid bills cannot receive new discounts" });
+        if (!bill.payerUser) return res.status(200).json({ discounts: [] });
+
+        const today = weekdayName();
+        // a customer has one loyalty balance across all branches
+        const [discounts, loyalty] = await Promise.all([
+            Discount.find({ branchId: req.user.branchId, isActive: true }),
+            Loyalty.findOne({ user: bill.payerUser })
+        ]);
+
+        const eligible = [];
+
+        discounts.forEach((discount) => {
+            if (discount.type === "weekly" && !(discount.applicableDays || []).map((day) => day.toLowerCase()).includes(today)) return;
+            if (discount.type === "hourly" && !inHourWindow(discount.applicableHours)) return;
+            if (discount.type === "loyalty" && (loyalty?.points || 0) < (discount.minPoints || 0)) return;
+            eligible.push({
+                type: discount.type,
+                key: String(discount._id),
+                name: discount.name,
+                percent: discount.value
+            });
+        });
+
+        res.status(200).json({ discounts: eligible });
+    } catch (error) {
+        console.error("List bill discounts error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
 export const applyBillDiscount = async (req, res) => {
     try {
         const bill = await populateBill(Bill.findOne({ _id: req.params.id, branchId: req.user.branchId }));

@@ -3,7 +3,6 @@ import path from "path";
 import mongoose from "mongoose";
 import Branch from "../models/branch.js";
 import Event from "../models/event.js";
-import Membership from "../models/membership.js";
 import TournamentReg from "../models/tournamentReg.js";
 import { discardUpload, PAYMENT_PROOF_DIR } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
@@ -27,19 +26,6 @@ const hasCap = (event) => event.maxParticipants > 0;
 const isRegistrationOpen = (event) => event.status === "upcoming" && event.date > new Date()
     && (!hasCap(event) || event.participantCount < event.maxParticipants);
 
-// memberFee is the members' price when the club sets one; 0 means members pay the normal fee
-const priceFor = (event, isMember) => (
-    isMember && event.memberFee > 0 ? Math.min(event.memberFee, event.registrationFee) : event.registrationFee
-);
-
-// a membership counts if it covers the event's branch and is still running on the event date
-const findMembership = (userId, event) => Membership.findOne({
-    user: userId,
-    status: "active",
-    expiryDate: { $gt: event.date },
-    $or: [{ branchId: event.branchId._id || event.branchId }, { allBranches: true }]
-}).select("plan");
-
 const serializeEvent = (event) => ({
     id: String(event._id),
     branchId: String(event.branchId._id || event.branchId),
@@ -50,7 +36,6 @@ const serializeEvent = (event) => ({
     date: event.date,
     prize: event.prize || null,
     registrationFee: event.registrationFee,
-    memberFee: event.memberFee > 0 ? Math.min(event.memberFee, event.registrationFee) : null,
     maxParticipants: hasCap(event) ? event.maxParticipants : null,
     spotsLeft: hasCap(event) ? Math.max(event.maxParticipants - event.participantCount, 0) : null,
     status: event.status,
@@ -62,7 +47,6 @@ const serializeRegistration = (registration) => {
     return {
         reference: registration.reference,
         event: event?._id ? serializeEvent(event) : null,
-        isMember: registration.isMember,
         feePaid: registration.feePaid,
         status: registration.status,
         paymentAccount: serializePaymentSnapshot(registration.paymentAccount),
@@ -137,28 +121,18 @@ export const listPublicEvents = async (req, res) => {
     }
 };
 
-// same list, with this client's price and registration on each event
+// same list, with this client's registration on each event
 export const listClientEvents = async (req, res) => {
     try {
         const events = await listedEventsQuery();
-        const [registrations, memberships] = await Promise.all([
-            TournamentReg.find({ user: req.user._id, event: { $in: events.map((event) => event._id) } }).select("event reference status"),
-            Membership.find({ user: req.user._id, status: "active", expiryDate: { $gt: new Date() } }).select("branchId allBranches expiryDate")
-        ]);
+        const registrations = await TournamentReg.find({ user: req.user._id, event: { $in: events.map((event) => event._id) } }).select("event reference status");
         const registrationByEvent = new Map(registrations.map((registration) => [String(registration.event), registration]));
 
         res.status(200).json({
-            events: events.map((event) => {
-                const branchId = String(event.branchId._id);
-                const isMember = memberships.some((membership) => membership.expiryDate > event.date
-                    && (membership.allBranches || String(membership.branchId) === branchId));
-                return {
-                    ...serializeEvent(event),
-                    isMember,
-                    price: priceFor(event, isMember),
-                    registration: summarizeRegistration(registrationByEvent.get(String(event._id)))
-                };
-            })
+            events: events.map((event) => ({
+                ...serializeEvent(event),
+                registration: summarizeRegistration(registrationByEvent.get(String(event._id)))
+            }))
         });
     } catch (error) {
         console.error("List client events error:", error.message);
@@ -175,17 +149,11 @@ export const getClientEvent = async (req, res) => {
             return res.status(404).json({ message: "Event not found" });
         }
 
-        const [membership, registration] = await Promise.all([
-            findMembership(req.user._id, event),
-            TournamentReg.findOne({ user: req.user._id, event: event._id }).select("reference status")
-        ]);
+        const registration = await TournamentReg.findOne({ user: req.user._id, event: event._id }).select("reference status");
 
         res.status(200).json({
             event: {
                 ...serializeEvent(event),
-                isMember: Boolean(membership),
-                memberPlan: membership ? membership.plan.charAt(0).toUpperCase() + membership.plan.slice(1) : null,
-                price: priceFor(event, Boolean(membership)),
                 registration: summarizeRegistration(registration),
                 paymentAccounts: (event.branchId.paymentAccounts || []).map(serializePaymentAccount)
             }
@@ -219,8 +187,7 @@ export const registerForEvent = async (req, res) => {
             return fail(409, "You are already registered for this event");
         }
 
-        const isMember = Boolean(await findMembership(req.user._id, event));
-        const price = priceFor(event, isMember);
+        const price = event.registrationFee;
         let payment = null;
         if (price > 0) {
             const branch = await Branch.findById(event.branchId).select("paymentAccounts");
@@ -243,7 +210,6 @@ export const registerForEvent = async (req, res) => {
 
         const fields = {
             branchId: event.branchId,
-            isMember,
             feePaid: price,
             status: price > 0 ? "registered" : "confirmed",
             paymentAccount: payment ? snapshotPaymentAccount(payment.account) : {},

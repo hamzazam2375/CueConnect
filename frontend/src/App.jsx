@@ -24,10 +24,6 @@ const ClientBookings = lazy(() => import("./pages/ClientBookings"));
 const ClientBookingReschedule = lazy(() => import("./pages/ClientBookingReschedule"));
 const ClientBookingTableChange = lazy(() => import("./pages/ClientBookingTableChange"));
 const ClientProfile = lazy(() => import("./pages/ClientProfile"));
-const ClientMemberships = lazy(() => import("./pages/ClientMemberships"));
-const ClientMembershipReview = lazy(() => import("./pages/ClientMembershipReview"));
-const ClientMembershipPayment = lazy(() => import("./pages/ClientMembershipPayment"));
-const ClientMembershipHistory = lazy(() => import("./pages/ClientMembershipHistory"));
 const ClientLoyalty = lazy(() => import("./pages/ClientLoyalty"));
 const ClientEvents = lazy(() => import("./pages/ClientEvents"));
 const ClientEventRegister = lazy(() => import("./pages/ClientEventRegister"));
@@ -60,10 +56,6 @@ export default function App() {
                         <Route element={<ClientLayout />}>
                             <Route path="/client/dashboard" element={<ClientDashboard />} />
                             <Route path="/client/profile" element={<ClientProfile />} />
-                            <Route path="/client/memberships" element={<ClientMemberships />} />
-                            <Route path="/client/memberships/review" element={<ClientMembershipReview />} />
-                            <Route path="/client/memberships/payment" element={<ClientMembershipPayment />} />
-                            <Route path="/client/memberships/manage" element={<ClientMembershipHistory />} />
                             <Route path="/client/loyalty" element={<ClientLoyalty />} />
                             <Route path="/client/events" element={<ClientEvents />} />
                             <Route path="/client/events/:eventId" element={<ClientEventRegister />} />

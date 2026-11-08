@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { clearError, clientSignup } from "../store/authSlice";
 import Logo from "../components/Logo";
+import EmailCodeStep from "../components/EmailCodeStep";
+import { PASSWORD_RULES } from "../utils/passwordPolicy";
 
 export default function ClientSignup() {
     const [form, setForm] = useState({
@@ -13,6 +15,7 @@ export default function ClientSignup() {
         confirmPassword: ""
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [verification, setVerification] = useState(null);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -23,6 +26,8 @@ export default function ClientSignup() {
     };
 
     const passwordsMatch = form.confirmPassword === "" || form.password === form.confirmPassword;
+    const passwordChecks = PASSWORD_RULES.map((rule) => ({ label: rule.label, met: rule.test(form.password) }));
+    const passwordStrong = passwordChecks.every((check) => check.met);
 
     useEffect(() => {
         return () => dispatch(clearError());
@@ -34,16 +39,16 @@ export default function ClientSignup() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        if (!passwordsMatch) return;
+        if (!passwordsMatch || !passwordStrong) return;
 
         try {
-            await dispatch(clientSignup({
+            const result = await dispatch(clientSignup({
                 firstName: form.firstName,
                 lastName: form.lastName,
                 email: form.email.trim(),
                 password: form.password
             })).unwrap();
-            navigate("/login", { state: { accountCreated: true } });
+            setVerification(result);
         } catch {
             // The Redux state displays the API error in the form.
         }
@@ -76,6 +81,15 @@ export default function ClientSignup() {
                 </div>
 
                 <div className="bg-neutral-950/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl shadow-red-900/10 px-7 py-6 sm:px-9 sm:py-7">
+                    {verification ? (
+                        <EmailCodeStep
+                            email={verification.email}
+                            notice={verification.message}
+                            emailSent={verification.emailSent}
+                            resendIn={verification.resendIn}
+                            onBack={() => navigate("/login")}
+                        />
+                    ) : (<>
                     <div className="text-center mb-5">
                         <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-red-600/10 border border-red-500/20 mb-3">
                             <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -187,9 +201,23 @@ export default function ClientSignup() {
                             </div>
                         </div>
 
+                        {form.password && (
+                            <ul className="-mt-1 flex flex-wrap gap-x-4 gap-y-1" aria-label="Password requirements">
+                                {passwordChecks.map((check) => (
+                                    <li key={check.label} className={`flex items-center gap-1.5 text-[11px] transition-colors ${check.met ? "text-emerald-400" : "text-gray-500"}`}>
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d={check.met ? "M4.5 12.75l6 6 9-13.5" : "M6 12h12"} />
+                                        </svg>
+                                        {check.label}
+                                        <span className="sr-only">{check.met ? "(done)" : "(missing)"}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={!passwordsMatch || isLoading}
+                            disabled={!passwordsMatch || !passwordStrong || isLoading}
                             className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-red-800 disabled:to-red-900 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/25 hover:shadow-red-500/35 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
                         >
                             {isLoading ? (
@@ -203,6 +231,7 @@ export default function ClientSignup() {
                             ) : "Create Account"}
                         </button>
                     </form>
+                    </>)}
 
                     <div className="mt-5 pt-4 border-t border-white/[0.06] text-center">
                         <Link to="/login" className="text-gray-400 text-xs hover:text-red-400 transition-colors duration-200">

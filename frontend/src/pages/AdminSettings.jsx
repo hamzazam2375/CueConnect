@@ -252,7 +252,7 @@ export default function AdminSettings() {
                         </form>
                     </Section>
 
-                    <Section eyebrow="Payments" title="Payment accounts" description="Clients send booking, membership, and event payments to these accounts.">
+                    <Section eyebrow="Payments" title="Payment accounts" description="Clients send booking and event payments to these accounts.">
                         {(branch?.paymentAccounts || []).length === 0 && <p className="mb-4 text-sm text-amber-400">No accounts yet. Clients cannot pay until you add at least one.</p>}
                         <div className="space-y-2">
                             {(branch?.paymentAccounts || []).map((account) => (

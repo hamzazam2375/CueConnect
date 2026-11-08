@@ -17,11 +17,11 @@ const paymentSchema = new mongoose.Schema(
         // what this payment is for
         type: {
             type: String,
-            enum: ["game", "bill", "booking", "membership", "event"],
+            enum: ["game", "bill", "booking", "event"],
             required: true
         },
 
-        // reference to the related document (game, booking, membership, or event)
+        // reference to the related document (game, bill, booking, or event)
         referenceId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true

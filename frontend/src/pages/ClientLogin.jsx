@@ -3,11 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { clearError, clientLogin } from "../store/authSlice";
 import Logo from "../components/Logo";
+import EmailCodeStep from "../components/EmailCodeStep";
 
 export default function ClientLogin() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [verification, setVerification] = useState(null);
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -26,7 +28,8 @@ export default function ClientLogin() {
     const handleSubmit = async (event) => {
         event.preventDefault();
         try {
-            await dispatch(clientLogin({ email: email.trim(), password })).unwrap();
+            const result = await dispatch(clientLogin({ email: email.trim(), password })).unwrap();
+            if (result.verification) setVerification(result.verification);
         } catch {
             // Redux displays the API error in the form.
         }
@@ -57,6 +60,15 @@ export default function ClientLogin() {
                 </div>
 
                 <div className="bg-neutral-950/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl shadow-red-900/10 px-7 py-6 sm:px-9 sm:py-7">
+                    {verification ? (
+                        <EmailCodeStep
+                            email={verification.email}
+                            notice={verification.message}
+                            emailSent={verification.emailSent}
+                            resendIn={verification.resendIn}
+                            onBack={() => { setVerification(null); setPassword(""); }}
+                        />
+                    ) : (<>
                     <div className="text-center mb-5">
                         <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-red-600/10 border border-red-500/20 mb-3">
                             <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -68,12 +80,6 @@ export default function ClientLogin() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {location.state?.accountCreated && (
-                            <div className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm text-center" role="status">
-                                Account created successfully. Please sign in.
-                            </div>
-                        )}
-
                         {error && (
                             <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center" role="alert">
                                 {error}
@@ -155,6 +161,7 @@ export default function ClientLogin() {
                             ) : "Sign In"}
                         </button>
                     </form>
+                    </>)}
 
                     <div className="mt-5 pt-4 border-t border-white/[0.06] text-center">
                         <Link to="/register" className="text-gray-400 text-xs hover:text-red-400 transition-colors duration-200">
