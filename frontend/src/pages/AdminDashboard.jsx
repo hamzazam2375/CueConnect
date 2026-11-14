@@ -2,8 +2,10 @@ import { useCallback, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import AdminLayout, { Icon } from "../components/AdminLayout";
-import StartGameModal, { ModalShell, inputClass, labelClass } from "../components/StartGameModal";
+import StartGameModal, { ModalShell } from "../components/StartGameModal";
+import ExpenseModal from "../components/ExpenseModal";
 import api from "../services/api";
+import { apiError, formatBookingDay, formatClock, formatMoney } from "../utils/adminFormat";
 
 function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
     const colorMap = {
@@ -33,14 +35,15 @@ function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
     );
 }
 
-function PendingRow({ label, count }) {
+function PendingRow({ label, count, onClick }) {
+    const idle = !count;
     return (
-        <div className="flex items-center justify-between py-3 border-b border-white/[0.05] last:border-0">
-            <span className="text-sm text-neutral-300">{label}</span>
-            <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-bold text-red-400">
+        <button type="button" onClick={onClick} className="group flex w-full items-center justify-between gap-3 border-b border-white/[0.05] py-3 text-left last:border-0">
+            <span className="text-sm text-neutral-300 transition-colors group-hover:text-white">{label}</span>
+            <span className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg border px-2.5 text-xs font-bold ${idle ? "border-white/[0.08] bg-white/[0.03] text-neutral-500" : "border-red-500/20 bg-red-500/10 text-red-400"}`}>
                 {count}
             </span>
-        </div>
+        </button>
     );
 }
 
@@ -83,6 +86,7 @@ function ActivityItem({ item }) {
         completed: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400" },
         rejected:  { bg: "bg-red-500/10 border-red-500/20", text: "text-red-400" },
         cancelled: { bg: "bg-neutral-500/10 border-neutral-500/20", text: "text-neutral-400" },
+        refunded:  { bg: "bg-neutral-500/10 border-neutral-500/20", text: "text-neutral-400" },
     };
 
     const c = colorMap[item.type] || colorMap.booking;
@@ -139,8 +143,6 @@ function getTimeAgo(dateStr) {
     return `${days}d ago`;
 }
 
-const formatWaitlistDate = (value) => value ? new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
-
 export default function AdminDashboard() {
     const { user, error } = useSelector((state) => state.auth);
     const [stats, setStats] = useState(null);
@@ -148,9 +150,6 @@ export default function AdminDashboard() {
     const [startOpen, setStartOpen] = useState(false);
     const [startSuccess, setStartSuccess] = useState(null);
     const [expenseOpen, setExpenseOpen] = useState(false);
-    const [expenseForm, setExpenseForm] = useState({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
-    const [expenseSaving, setExpenseSaving] = useState(false);
-    const [expenseError, setExpenseError] = useState(null);
     const [waitlist, setWaitlist] = useState([]);
     const [waitlistLoading, setWaitlistLoading] = useState(true);
     const [waitlistSaving, setWaitlistSaving] = useState(false);
@@ -159,6 +158,10 @@ export default function AdminDashboard() {
     const navigate = useNavigate();
 
     const reloadStats = () => api.get("/admin/dashboard-stats").then(({ data }) => setStats(data)).catch(() => {});
+    const flash = (text) => {
+        setStartSuccess(text);
+        setTimeout(() => setStartSuccess(null), 3000);
+    };
 
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -185,10 +188,10 @@ export default function AdminDashboard() {
         try {
             await api.patch(`/admin/waitlist/${entry.id}/notify`);
             await loadWaitlist();
-            setStartSuccess("Customer notified that the slot is free");
-            setTimeout(() => setStartSuccess(null), 3000);
+            reloadStats();
+            flash(`${entry.customer?.name || "Customer"} notified that the slot is free`);
         } catch (requestError) {
-            setWaitlistError(requestError.response?.data?.message || "Customer could not be notified");
+            setWaitlistError(apiError(requestError, "Customer could not be notified"));
         } finally {
             setWaitlistSaving(false);
         }
@@ -202,87 +205,33 @@ export default function AdminDashboard() {
                 open={startOpen}
                 onClose={() => setStartOpen(false)}
                 onStarted={() => {
-                    setStartSuccess("Game started");
-                    setTimeout(() => setStartSuccess(null), 3000);
+                    flash("Game started");
                     reloadStats();
                 }}
             />
             {expenseOpen && (
-                <ModalShell title="Add expense" onClose={() => setExpenseOpen(false)}>
-                    <form
-                        onSubmit={async (e) => {
-                            e.preventDefault();
-                            setExpenseSaving(true);
-                            setExpenseError(null);
-                            try {
-                                await api.post("/admin/expenses", expenseForm);
-                                setExpenseOpen(false);
-                                setExpenseForm({ description: "", category: "other", amount: "", paymentMethod: "cash", date: new Date().toISOString().slice(0, 10) });
-                                setStartSuccess("Expense recorded");
-                                setTimeout(() => setStartSuccess(null), 3000);
-                                reloadStats();
-                            } catch (err) {
-                                setExpenseError(err.response?.data?.message || "Expense could not be recorded");
-                            } finally {
-                                setExpenseSaving(false);
-                            }
-                        }}
-                        className="space-y-4"
-                    >
-                        <div>
-                            <label className={labelClass}>Description</label>
-                            <input required value={expenseForm.description} onChange={(e) => setExpenseForm((f) => ({ ...f, description: e.target.value }))} className={inputClass} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelClass}>Category</label>
-                                <select value={expenseForm.category} onChange={(e) => setExpenseForm((f) => ({ ...f, category: e.target.value }))} className={`${inputClass} appearance-none`}>
-                                    <option value="rent" className="bg-neutral-900">Rent</option>
-                                    <option value="utilities" className="bg-neutral-900">Utilities</option>
-                                    <option value="equipment" className="bg-neutral-900">Equipment</option>
-                                    <option value="salary" className="bg-neutral-900">Salary</option>
-                                    <option value="maintenance" className="bg-neutral-900">Maintenance</option>
-                                    <option value="other" className="bg-neutral-900">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className={labelClass}>Amount</label>
-                                <input required type="number" min="1" step="1" value={expenseForm.amount} onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))} className={inputClass} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelClass}>Payment method</label>
-                                <select value={expenseForm.paymentMethod} onChange={(e) => setExpenseForm((f) => ({ ...f, paymentMethod: e.target.value }))} className={`${inputClass} appearance-none`}>
-                                    <option value="cash" className="bg-neutral-900">Cash</option>
-                                    <option value="online" className="bg-neutral-900">Online</option>
-                                    <option value="card" className="bg-neutral-900">Card</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className={labelClass}>Date</label>
-                                <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))} className={inputClass} />
-                            </div>
-                        </div>
-                        {expenseError && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{expenseError}</p>}
-                        <div className="flex gap-3 pt-1">
-                            <button type="button" onClick={() => setExpenseOpen(false)} className="flex-1 rounded-xl border border-white/[0.08] py-2.5 text-sm font-semibold">Cancel</button>
-                            <button type="submit" disabled={expenseSaving} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold hover:bg-red-500 disabled:bg-red-900">{expenseSaving ? "Saving..." : "Save expense"}</button>
-                        </div>
-                    </form>
-                </ModalShell>
+                <ExpenseModal
+                    onClose={() => setExpenseOpen(false)}
+                    onSaved={() => {
+                        flash("Expense recorded");
+                        reloadStats();
+                    }}
+                />
             )}
             {waitlistOpen && (
-                <ModalShell title={`Waitlist (${waitlist.length})`} onClose={() => setWaitlistOpen(false)}>
+                <ModalShell title={`Waitlist (${waitlist.length})`} onClose={() => { setWaitlistOpen(false); setWaitlistError(""); }}>
+                    <p className="mb-4 text-xs text-neutral-500">Notify a customer once their requested slot is free. The first to book it gets it.</p>
                     <div className="space-y-2">
                         {waitlistError && <p className="rounded-lg bg-red-500/10 px-2.5 py-2 text-xs text-red-400">{waitlistError}</p>}
                         {waitlistLoading ? <div className="h-24 animate-pulse rounded-xl bg-white/[0.03]" /> : waitlist.length ? waitlist.map((entry) => (
                             <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
                                 <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-neutral-200">{entry.customer?.name}</p>
-                                    <p className="truncate text-xs text-neutral-500">{entry.table?.name} · {formatWaitlistDate(entry.date)}</p>
+                                    <p className="truncate text-sm font-semibold text-neutral-200">{entry.customer?.name}{entry.customer?.customerId ? <span className="ml-1.5 text-xs font-normal text-neutral-500">{entry.customer.customerId}</span> : null}</p>
+                                    <p className="truncate text-xs text-neutral-500">{entry.table?.name || "Removed table"} · {formatBookingDay(entry.date)} · {formatClock(entry.startTime)} – {formatClock(entry.endTime)}</p>
                                 </div>
-                                {entry.status === "waiting" && <button type="button" disabled={waitlistSaving} onClick={() => notifyWaitlistCustomer(entry)} className="shrink-0 rounded-lg bg-emerald-600/80 px-2.5 py-1.5 text-[11px] font-bold disabled:opacity-50">Mark free</button>}
+                                {entry.status === "waiting"
+                                    ? <button type="button" disabled={waitlistSaving} onClick={() => notifyWaitlistCustomer(entry)} className="shrink-0 rounded-lg bg-emerald-600/80 px-2.5 py-1.5 text-[11px] font-bold hover:bg-emerald-600 disabled:opacity-50">Notify</button>
+                                    : <span className="shrink-0 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-bold text-emerald-400">Notified</span>}
                             </div>
                         )) : <p className="rounded-xl border border-dashed border-white/[0.08] py-8 text-center text-xs text-neutral-500">No customers are waiting.</p>}
                     </div>
@@ -313,7 +262,7 @@ export default function AdminDashboard() {
                 <>
                     {/* ── Tables & Operations Stats ── */}
                     <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:gap-4" aria-label="Tables and operations">
-                        <StatCard icon="table" label="Available Tables" value={`${stats?.availableTables ?? 0} / ${stats?.totalTables ?? 0}`} subValue="Tables ready for use" delay="80ms" iconColor="blue" />
+                        <StatCard icon="table" label="Available Tables" value={`${stats?.availableTables ?? 0} / ${stats?.totalTables ?? 0}`} subValue={stats?.maintenanceTables ? `${stats.maintenanceTables} under maintenance` : "Tables ready for use"} delay="80ms" iconColor="blue" />
                         <StatCard icon="calendar" label="Pending Bookings" value={stats?.pendingBookings ?? 0} subValue="Awaiting confirmation" delay="140ms" iconColor="amber" />
                         <StatCard icon="hourglass" label="Waitlist" value={stats?.waitlistCount ?? 0} subValue="Customers waiting" delay="200ms" iconColor="violet" />
                         <OccupancyBar occupied={stats?.occupiedTables ?? 0} total={stats?.totalTables ?? 0} />
@@ -332,20 +281,20 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                                 <QuickActionButton icon="gamepad" label="Start Game" onClick={() => setStartOpen(true)} color="violet" />
                                 <QuickActionButton icon="calendar" label="View Bookings" onClick={() => navigate("/admin/bookings")} color="blue" />
-                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => setWaitlistOpen(true)} color="amber" />
-                                <QuickActionButton icon="arrowDown" label="Add Expense" onClick={() => { setExpenseError(null); setExpenseOpen(true); }} color="rose" />
+                                <QuickActionButton icon="hourglass" label="View Waitlist" onClick={() => { loadWaitlist(); setWaitlistOpen(true); }} color="amber" />
+                                <QuickActionButton icon="arrowDown" label="Add Expense" onClick={() => setExpenseOpen(true)} color="rose" />
                             </div>
                         </article>
                     </section>
 
                     {/* ── Financial Stats ── */}
                     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3 xl:gap-4" aria-label="Financial statistics">
-                        <StatCard icon="dollar" label="Today's Income" value={`Rs. ${(stats?.todayIncome ?? 0).toLocaleString()}`} subValue="Total received today" delay="380ms" iconColor="emerald" />
-                        <StatCard icon="arrowDown" label="Today's Expenses" value={`Rs. ${(stats?.todayExpenses ?? 0).toLocaleString()}`} subValue="Total spent today" delay="420ms" iconColor="rose" />
+                        <StatCard icon="dollar" label="Today's Income" value={formatMoney(stats?.todayIncome)} subValue="Payments collected today" delay="380ms" iconColor="emerald" />
+                        <StatCard icon="arrowDown" label="Today's Expenses" value={formatMoney(stats?.todayExpenses)} subValue="Total spent today" delay="420ms" iconColor="rose" />
                         <StatCard
                             icon={netProfit >= 0 ? "trendingUp" : "trendingDown"}
                             label="Net Profit"
-                            value={`${netProfit < 0 ? "- " : ""}Rs. ${Math.abs(netProfit).toLocaleString()}`}
+                            value={`${netProfit < 0 ? "- " : ""}${formatMoney(Math.abs(netProfit))}`}
                             subValue={netProfit >= 0 ? "You're in profit today" : "Expenses exceed income"}
                             delay="460ms"
                             iconColor={netProfit >= 0 ? "emerald" : "rose"}
@@ -364,10 +313,10 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             <div>
-                                <PendingRow label="Booking requests to review" count={stats?.pendingBookings ?? 0} />
-                                <PendingRow label="Payment proofs to verify" count={stats?.unpaidBills ?? 0} />
-                                <PendingRow label="Customers in waitlist" count={stats?.waitlistCount ?? 0} />
-                                <PendingRow label="Upcoming tournaments" count={stats?.upcomingTournaments ?? 0} />
+                                <PendingRow label="Booking requests to review" count={stats?.pendingBookings ?? 0} onClick={() => navigate("/admin/bookings")} />
+                                <PendingRow label="Event payments to verify" count={stats?.pendingRegistrations ?? 0} onClick={() => navigate("/admin/bookings?tab=events")} />
+                                <PendingRow label="Unpaid bills" count={stats?.unpaidBills ?? 0} onClick={() => navigate("/admin/billing")} />
+                                <PendingRow label="Customers in waitlist" count={stats?.waitlistCount ?? 0} onClick={() => { loadWaitlist(); setWaitlistOpen(true); }} />
                             </div>
                             <p className="mt-4 text-[11px] text-neutral-600 flex items-center gap-1.5"><Icon name="clock" className="h-3 w-3" /> Live data from your branch</p>
                         </article>
@@ -385,7 +334,7 @@ export default function AdminDashboard() {
                                 <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400"><Icon name="calendar" className="h-4 w-4" /></div>
-                                        <div><p className="text-sm font-semibold text-neutral-200">Today&apos;s Bookings</p><p className="text-xs text-neutral-500">Confirmed games</p></div>
+                                        <div><p className="text-sm font-semibold text-neutral-200">Today&apos;s Bookings</p><p className="text-xs text-neutral-500">Scheduled for today</p></div>
                                     </div>
                                     <span className="text-2xl font-black text-white">{stats?.todayBookings ?? 0}</span>
                                 </div>
@@ -401,7 +350,7 @@ export default function AdminDashboard() {
                                         <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400"><Icon name="trophy" className="h-4 w-4" /></div>
                                         <div><p className="text-sm font-semibold text-neutral-200">Upcoming Events</p><p className="text-xs text-neutral-500">Tournaments & specials</p></div>
                                     </div>
-                                    <span className="text-2xl font-black text-white">{stats?.upcomingEvents ?? 0}</span>
+                                    <span className="text-2xl font-black text-white">{stats?.upcomingEvents ?? 0}<span className="ml-1 text-xs font-semibold text-neutral-500">({stats?.upcomingTournaments ?? 0} tournaments)</span></span>
                                 </div>
                             </div>
                         </article>
@@ -417,8 +366,8 @@ export default function AdminDashboard() {
                             </div>
                             {(stats?.recentActivity ?? []).length > 0 ? (
                                 <div className="max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
-                                    {stats.recentActivity.map((item, i) => (
-                                        <ActivityItem key={i} item={item} />
+                                    {stats.recentActivity.map((item) => (
+                                        <ActivityItem key={`${item.type}-${item.time}-${item.message}`} item={item} />
                                     ))}
                                 </div>
                             ) : (

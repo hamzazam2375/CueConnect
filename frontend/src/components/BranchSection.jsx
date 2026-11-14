@@ -1,12 +1,19 @@
 import { useState } from "react";
 import BranchCard from "./BranchCard";
+import { formatOpeningHours } from "../utils/publicBranches";
 
-export default function BranchSection({ branches }) {
-    const [selectedBranch, setSelectedBranch] = useState(null);
+const STATUS_STYLES = {
+    available: { label: "Available", className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+    occupied: { label: "In play", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+    maintenance: { label: "Maintenance", className: "bg-red-500/10 text-red-400 border-red-500/20" }
+};
 
-    const handleSelect = (branch) => {
-        setSelectedBranch(selectedBranch?.id === branch.id ? null : branch);
-    };
+// `branches` is null while loading; `error` is set when the list could not be fetched
+export default function BranchSection({ branches, error }) {
+    const [selectedId, setSelectedId] = useState(null);
+    const selectedBranch = branches?.find((branch) => branch.id === selectedId) || null;
+
+    const handleSelect = (branch) => setSelectedId((current) => current === branch.id ? null : branch.id);
 
     return (
         <section id="branches" className="py-20 px-4 bg-neutral-950">
@@ -20,21 +27,29 @@ export default function BranchSection({ branches }) {
                     </h2>
                 </div>
 
-                {/* branch cards grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    {branches.map((branch) => (
-                        <BranchCard
-                            key={branch.id}
-                            branch={branch}
-                            isSelected={selectedBranch?.id === branch.id}
-                            onSelect={handleSelect}
-                        />
-                    ))}
-                </div>
+                {error ? (
+                    <p className="text-center text-gray-500">Branches could not be loaded right now. Please refresh the page.</p>
+                ) : !branches ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading branches">
+                        {[0, 1].map((item) => <div key={item} className="h-64 rounded-xl border border-white/10 bg-neutral-900 animate-pulse" />)}
+                    </div>
+                ) : branches.length === 0 ? (
+                    <p className="text-center text-gray-500">Our branches will be listed here soon.</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        {branches.map((branch) => (
+                            <BranchCard
+                                key={branch.id}
+                                branch={branch}
+                                isSelected={selectedId === branch.id}
+                                onSelect={handleSelect}
+                            />
+                        ))}
+                    </div>
+                )}
 
-                {/* branch detail panel */}
                 {selectedBranch && (
-                    <BranchDetail branch={selectedBranch} onClose={() => setSelectedBranch(null)} />
+                    <BranchDetail branch={selectedBranch} onClose={() => setSelectedId(null)} />
                 )}
             </div>
         </section>
@@ -45,88 +60,55 @@ function BranchDetail({ branch, onClose }) {
     return (
         <div className="bg-neutral-900 border border-white/10 rounded-xl p-6 sm:p-8 mt-4 animate-fade-in">
             {/* header */}
-            <div className="flex items-center justify-between mb-8">
-                <h3 className="text-2xl font-bold text-white">{branch.name}</h3>
+            <div className="flex items-start justify-between gap-4 mb-8">
+                <div>
+                    <h3 className="text-2xl font-bold text-white">{branch.name}</h3>
+                    <p className="mt-1 text-sm text-gray-500">{formatOpeningHours(branch)}{branch.address ? ` · ${branch.address}` : ""}</p>
+                </div>
                 <button
+                    type="button"
                     onClick={onClose}
+                    aria-label="Close branch details"
                     className="text-gray-400 hover:text-white p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
                     ✕
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* tables */}
-                <div>
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        🎱 Tables & Prices
-                    </h4>
-                    <div className="space-y-3">
-                        {branch.tables.map((table, i) => (
+            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                🎱 Tables & Prices
+            </h4>
+            {branch.tables.length === 0 ? (
+                <p className="text-sm text-gray-500">This branch hasn&apos;t listed its tables yet.</p>
+            ) : (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {branch.tables.map((table) => {
+                        const status = STATUS_STYLES[table.status] || STATUS_STYLES.available;
+                        return (
                             <div
-                                key={i}
-                                className="flex items-center justify-between bg-black/40 rounded-lg p-3 border border-white/5"
+                                key={table.id}
+                                className="flex items-center justify-between gap-3 bg-black/40 rounded-lg p-3 border border-white/5"
                             >
-                                <div>
+                                <div className="min-w-0">
                                     <p className="text-white font-medium text-sm">{table.name}</p>
-                                    <p className="text-gray-500 text-xs capitalize">{table.type}</p>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <span className="text-gray-500 text-xs capitalize">{table.type}</span>
+                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${status.className}`}>{status.label}</span>
+                                    </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-white text-sm font-semibold">
-                                        PKR {table.pricePerHour}/hr
+                                        PKR {Number(table.pricePerHour).toLocaleString()}/hr
                                     </p>
                                     <p className="text-gray-500 text-xs">
-                                        Frame: {table.frameRate} · Century: {table.centuryRate}
+                                        Frame: {table.frameRate} · Century: {table.centuryRate}/min
                                     </p>
                                 </div>
-
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
-
-                {/* discounts */}
-                <div>
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        🏷️ Active Discounts
-                    </h4>
-                    <div className="space-y-3">
-                        {branch.discounts.map((d, i) => (
-                            <div
-                                key={i}
-                                className="bg-black/40 rounded-lg p-3 border border-white/5 flex items-center justify-between"
-                            >
-                                <div>
-                                    <p className="text-white font-medium text-sm">{d.name}</p>
-                                    <p className="text-gray-500 text-xs">{d.description}</p>
-                                </div>
-                                <span className="text-red-400 font-bold text-lg">{d.value}%</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* contact */}
-                <div>
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        📞 Contact & Location
-                    </h4>
-                    <div className="bg-black/40 rounded-lg p-4 border border-white/5 space-y-3">
-                        <p className="text-gray-400 text-sm flex items-start gap-2">
-                            <span className="text-red-500">📍</span> {branch.address}
-                        </p>
-                        <p className="text-gray-400 text-sm flex items-center gap-2">
-                            <span className="text-red-500">📞</span> {branch.phone}
-                        </p>
-                        <p className="text-gray-400 text-sm flex items-center gap-2">
-                            <span className="text-red-500">✉️</span> {branch.email}
-                        </p>
-                        <p className="text-gray-400 text-sm flex items-center gap-2">
-                            <span className="text-red-500">🕐</span> {branch.openingHours}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 }

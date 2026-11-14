@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import AdminLayout, { Icon } from "../components/AdminLayout";
 import { ModalShell, inputClass, labelClass } from "../components/StartGameModal";
 import api from "../services/api";
+import { apiError, formatDate, formatMoney } from "../utils/adminFormat";
+import { PASSWORD_RULES, passwordError } from "../utils/passwordPolicy";
 
-const emptyRegister = { firstName: "", lastName: "", email: "", password: "" };
-const formatMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-const formatDate = (value) => value ? new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+const emptyRegister = { firstName: "", lastName: "", email: "", phone: "", password: "" };
 
 function StatusBadge({ active }) {
     return (
@@ -40,15 +40,20 @@ export default function AdminCustomers() {
 
     const [detail, setDetail] = useState(null);
     const [editOpen, setEditOpen] = useState(false);
-    const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", isActive: true });
+    const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", phone: "", isActive: true });
 
-    const loadCustomers = async (nextPage = page, nextSearch = search) => {
-        const { data } = await api.get("/admin/customers", { params: { page: nextPage, limit: 10, search: nextSearch || undefined } });
+    const fetchCustomers = (nextPage, nextSearch) => api.get("/admin/customers", {
+        params: { page: nextPage, limit: 10, search: nextSearch || undefined }
+    }).then(({ data }) => data);
+
+    const applyCustomers = (data) => {
         setCustomers(data.customers || []);
         setPage(data.page || 1);
         setPages(data.pages || 1);
         setTotal(data.total || 0);
     };
+
+    const loadCustomers = async (nextPage = page, nextSearch = search) => applyCustomers(await fetchCustomers(nextPage, nextSearch));
 
     const refresh = async (nextPage = page, nextSearch = search) => {
         setLoading(true);
@@ -62,7 +67,12 @@ export default function AdminCustomers() {
         }
     };
 
-    useEffect(() => { refresh(1, ""); }, []);
+    useEffect(() => {
+        fetchCustomers(1, "")
+            .then(applyCustomers)
+            .catch(() => setError("Customers could not be loaded."))
+            .finally(() => setLoading(false));
+    }, []);
     useEffect(() => {
         if (!success) return undefined;
         const timer = setTimeout(() => setSuccess(null), 3000);
@@ -78,6 +88,7 @@ export default function AdminCustomers() {
                 firstName: data.customer.firstName,
                 lastName: data.customer.lastName,
                 email: data.customer.email,
+                phone: data.customer.phone || "",
                 isActive: data.customer.isActive
             });
             return data.customer;
@@ -88,6 +99,11 @@ export default function AdminCustomers() {
     };
 
     const submitRegister = async () => {
+        const weak = passwordError(registerForm.password);
+        if (weak) {
+            setError(weak);
+            return;
+        }
         setSaving(true);
         setError(null);
         try {
@@ -97,7 +113,7 @@ export default function AdminCustomers() {
             setSuccess(`Customer registered · ${data.customer.customerId}`);
             await loadCustomers(1, search);
         } catch (err) {
-            setError(err.response?.data?.message || "Customer could not be registered");
+            setError(apiError(err, "Customer could not be registered"));
         } finally {
             setSaving(false);
         }
@@ -114,7 +130,7 @@ export default function AdminCustomers() {
             await openDetails(detail);
             await loadCustomers(page, search);
         } catch (err) {
-            setError(err.response?.data?.message || "Customer could not be updated");
+            setError(apiError(err, "Customer could not be updated"));
         } finally {
             setSaving(false);
         }
@@ -135,15 +151,26 @@ export default function AdminCustomers() {
                                 <input required value={registerForm.lastName} onChange={(e) => setRegisterForm((form) => ({ ...form, lastName: e.target.value }))} className={inputClass} />
                             </div>
                         </div>
-                        <div>
-                            <label className={labelClass}>Email</label>
-                            <input required type="email" value={registerForm.email} onChange={(e) => setRegisterForm((form) => ({ ...form, email: e.target.value }))} className={inputClass} />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label className={labelClass}>Email</label>
+                                <input required type="email" value={registerForm.email} onChange={(e) => setRegisterForm((form) => ({ ...form, email: e.target.value }))} className={inputClass} />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Phone (optional)</label>
+                                <input type="tel" value={registerForm.phone} onChange={(e) => setRegisterForm((form) => ({ ...form, phone: e.target.value }))} placeholder="+92 300 1234567" className={inputClass} />
+                            </div>
                         </div>
                         <div>
-                            <label className={labelClass}>Password</label>
-                            <input required type="password" minLength={8} value={registerForm.password} onChange={(e) => setRegisterForm((form) => ({ ...form, password: e.target.value }))} className={inputClass} />
+                            <label className={labelClass}>Temporary password</label>
+                            <input required type="password" autoComplete="new-password" minLength={8} value={registerForm.password} onChange={(e) => setRegisterForm((form) => ({ ...form, password: e.target.value }))} className={inputClass} />
+                            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                                {PASSWORD_RULES.map((rule) => (
+                                    <li key={rule.label} className={rule.test(registerForm.password) ? "text-emerald-400" : "text-neutral-600"}>{rule.test(registerForm.password) ? "✓" : "•"} {rule.label}</li>
+                                ))}
+                            </ul>
                         </div>
-                        <p className="text-xs text-neutral-600">A unique Customer ID is generated automatically. Walk-in players are not registered here.</p>
+                        <p className="text-xs text-neutral-600">A unique Customer ID is generated automatically. The customer confirms their email with a code the first time they sign in. Walk-in players are not registered here.</p>
                         {error && registerOpen && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>}
                         <div className="flex gap-3 pt-1">
                             <button type="button" onClick={() => setRegisterOpen(false)} className="flex-1 rounded-xl border border-white/[0.08] py-2.5 text-sm font-semibold">Cancel</button>
@@ -170,9 +197,15 @@ export default function AdminCustomers() {
                                 <input required value={editForm.lastName} onChange={(e) => setEditForm((form) => ({ ...form, lastName: e.target.value }))} className={inputClass} />
                             </div>
                         </div>
-                        <div>
-                            <label className={labelClass}>Email</label>
-                            <input required type="email" value={editForm.email} onChange={(e) => setEditForm((form) => ({ ...form, email: e.target.value }))} className={inputClass} />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label className={labelClass}>Email</label>
+                                <input required type="email" value={editForm.email} onChange={(e) => setEditForm((form) => ({ ...form, email: e.target.value }))} className={inputClass} />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Phone</label>
+                                <input type="tel" value={editForm.phone} onChange={(e) => setEditForm((form) => ({ ...form, phone: e.target.value }))} className={inputClass} />
+                            </div>
                         </div>
                         <div>
                             <label className={labelClass}>Account status</label>
@@ -180,6 +213,7 @@ export default function AdminCustomers() {
                                 <option value="active" className="bg-neutral-900">Active</option>
                                 <option value="inactive" className="bg-neutral-900">Inactive</option>
                             </select>
+                            <p className="mt-1.5 text-[11px] text-neutral-600">Inactive customers can&apos;t be picked for new games, bills, or bookings.</p>
                         </div>
                         {error && editOpen && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>}
                         <div className="flex gap-3 pt-1">
@@ -191,27 +225,15 @@ export default function AdminCustomers() {
             )}
 
             {detail && !editOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDetail(null)} />
-                    <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-neutral-950 p-6 sm:p-8">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Customer details</p>
-                                <h2 className="mt-1 text-2xl font-black">{detail.name}</h2>
-                                <p className="mt-1 text-sm text-neutral-500">{detail.customerId}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-400">Registered</span>
-                                <StatusBadge active={detail.isActive} />
-                                <button type="button" onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500" aria-label="Close"><Icon name="x" className="h-4 w-4" /></button>
-                            </div>
-                        </div>
+                <ModalShell size="lg" eyebrow="Customer details" title={detail.name} onClose={() => { setDetail(null); setError(null); }} actions={<StatusBadge active={detail.isActive} />}>
+                        <p className="-mt-4 text-sm text-neutral-500">{detail.customerId}</p>
 
                         <h3 className="mt-8 text-sm font-bold uppercase tracking-wider text-neutral-500">Personal information</h3>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Summary label="Customer ID" value={detail.customerId} />
                             <Summary label="Name" value={detail.name} />
-                            <Summary label="Email" value={detail.email} />
+                            <Summary label="Email" value={<span className="break-all">{detail.email}</span>} />
+                            <Summary label="Phone" value={detail.phone || "—"} />
                             <Summary label="Registered" value={formatDate(detail.createdAt)} />
                             <Summary label="Account status" value={detail.isActive ? "Active" : "Inactive"} />
                         </div>
@@ -225,7 +247,6 @@ export default function AdminCustomers() {
                         <h3 className="mt-8 text-sm font-bold uppercase tracking-wider text-neutral-500">Booking history</h3>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             <Summary label="Bookings made" value={detail.bookingsMade} />
-                            {detail.bookingsAsPayer !== detail.bookingsMade && <Summary label="Bookings as payer" value={detail.bookingsAsPayer} />}
                         </div>
 
                         <h3 className="mt-8 text-sm font-bold uppercase tracking-wider text-neutral-500">Billing summary</h3>
@@ -242,8 +263,7 @@ export default function AdminCustomers() {
                         <button type="button" onClick={() => setEditOpen(true)} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold hover:bg-red-500">
                             <Icon name="edit" className="h-4 w-4" /> Edit
                         </button>
-                    </div>
-                </div>
+                </ModalShell>
             )}
 
             {success && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">{success}</div>}
@@ -271,12 +291,12 @@ export default function AdminCustomers() {
                 <section className="mt-6 h-40 animate-pulse rounded-2xl border border-white/[0.07] bg-neutral-950/80" />
             ) : customers.length === 0 ? (
                 <section className="mt-8 rounded-3xl border border-dashed border-white/[0.1] px-6 py-14 text-center">
-                    <p className="font-bold">No registered customers</p>
-                    <p className="mt-1 text-sm text-neutral-600">Register a customer to generate a unique Customer ID.</p>
+                    <p className="font-bold">{search ? "No customers match your search" : "No registered customers"}</p>
+                    <p className="mt-1 text-sm text-neutral-600">{search ? "Try a name, Customer ID, or email." : "Register a customer to generate a unique Customer ID."}</p>
                 </section>
             ) : (
                 <>
-                    <section className="mt-6 overflow-hidden rounded-2xl border border-white/[0.07]">
+                    <section className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.07]">
                         <table className="min-w-full text-left text-sm">
                             <thead className="bg-white/[0.03] text-[10px] uppercase tracking-wider text-neutral-500">
                                 <tr>
@@ -291,16 +311,16 @@ export default function AdminCustomers() {
                             <tbody>
                                 {customers.map((customer) => (
                                     <tr key={customer.id} className="border-t border-white/[0.06] hover:bg-white/[0.03]">
-                                        <td className="px-4 py-3 font-bold text-red-400">{customer.customerId}</td>
+                                        <td className="whitespace-nowrap px-4 py-3 font-bold text-red-400">{customer.customerId}</td>
                                         <td className="px-4 py-3">
                                             <p className="font-semibold">{customer.name}</p>
-                                            <span className="mt-1 inline-flex rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">Registered</span>
+                                            <p className="text-[11px] text-neutral-600 md:hidden">{customer.email}</p>
                                         </td>
                                         <td className="hidden px-4 py-3 text-neutral-400 md:table-cell">{customer.email}</td>
                                         <td className="px-4 py-3 font-bold">{customer.loyaltyPoints}</td>
                                         <td className="px-4 py-3"><StatusBadge active={customer.isActive} /></td>
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end gap-2 whitespace-nowrap">
                                                 <button type="button" onClick={() => openDetails(customer)} className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-bold hover:bg-white/[0.1]">View Details</button>
                                                 <button type="button" onClick={async () => { const next = await openDetails(customer); if (next) setEditOpen(true); }} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-bold">Edit</button>
                                             </div>

@@ -57,7 +57,7 @@ function DateFilter({ value, onChange, label }) {
 }
 
 export default function AdminGames() {
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
     const [activeGames, setActiveGames] = useState([]);
     const [history, setHistory] = useState([]);
     const [tables, setTables] = useState([]);
@@ -105,19 +105,22 @@ export default function AdminGames() {
         setHistory(data.games || []);
     };
 
-    const refresh = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            await Promise.all([loadCore(), loadHistory()]);
-        } catch {
-            setError("Games could not be loaded. Please try again.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { refresh(); }, []);
+    useEffect(() => {
+        Promise.all([
+            api.get("/admin/tables"),
+            api.get("/admin/customers"),
+            api.get("/admin/games/active"),
+            api.get("/admin/games/history")
+        ])
+            .then(([{ data: tableData }, { data: customerData }, { data: activeData }, { data: historyData }]) => {
+                setTables(tableData.tables || []);
+                setCustomers(customerData.customers || []);
+                setActiveGames(activeData.games || []);
+                setHistory(historyData.games || []);
+            })
+            .catch(() => setError("Games could not be loaded. Please try again."))
+            .finally(() => setLoading(false));
+    }, []);
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(timer);

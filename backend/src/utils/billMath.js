@@ -21,9 +21,8 @@ export const syncBillTotals = (bill) => {
         ? bill.games.reduce((sum, game) => sum + Number(game?.finalAmount || game?.totalAmount || 0), 0)
         : 0;
     const original = roundMoney(bill.originalAmount || bill.totalAmount || gameTotal);
-    const breakdown = Array.isArray(bill.discountBreakdown) ? bill.discountBreakdown : [];
     const discount = roundMoney(Math.min(
-        breakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) || bill.discountAmount || 0,
+        bill.discountAmount || 0,
         original
     ));
     const payable = roundMoney(Math.max(0, original - discount));
@@ -35,7 +34,8 @@ export const syncBillTotals = (bill) => {
     bill.paidAmount = paid;
     bill.remainingBalance = roundMoney(Math.max(0, payable - paid));
 
-    if (bill.remainingBalance <= 0 && paid > 0) {
+    // a bill is settled once nothing is owed, whether by payments or by a full discount
+    if (bill.remainingBalance <= 0 && (paid > 0 || discount > 0)) {
         bill.status = "paid";
         bill.paidAt = bill.paidAt || new Date();
     } else if (paid > 0) {
@@ -49,15 +49,6 @@ export const syncBillTotals = (bill) => {
     return bill;
 };
 
-export const reapplyDiscountBreakdown = (bill) => {
-    const original = roundMoney(bill.originalAmount || 0);
-    const breakdown = (bill.discountBreakdown || []).map((item) => ({
-        ...item,
-        amount: roundMoney(original * (Number(item.percent) || 0) / 100)
-    }));
-    bill.discountBreakdown = breakdown;
-    if (breakdown.length) {
-        bill.discountAmount = roundMoney(breakdown.reduce((sum, item) => sum + item.amount, 0));
-    }
-    return syncBillTotals(bill);
-};
+// the part of the bill's discount that came from loyalty points (the rest is the admin's manual discount)
+export const loyaltyDiscountOf = (bill) => roundMoney(bill.loyaltyRedemption?.reward ? bill.loyaltyRedemption.amount : 0);
+export const manualDiscountOf = (bill) => roundMoney(Math.max(0, (bill.discountAmount || 0) - loyaltyDiscountOf(bill)));

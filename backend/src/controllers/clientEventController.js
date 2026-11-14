@@ -6,6 +6,7 @@ import Event from "../models/event.js";
 import TournamentReg from "../models/tournamentReg.js";
 import { discardUpload, PAYMENT_PROOF_DIR } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
+import { formatBranchName } from "../utils/branchName.js";
 
 // registrations that hold a spot in the event
 const ACTIVE_STATUSES = ["registered", "confirmed"];
@@ -14,11 +15,6 @@ const ACTIVE_STATUSES = ["registered", "confirmed"];
 const LISTED_FOR_MS = 6 * 60 * 60 * 1000;
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
-
-const formatBranchName = (branch) => {
-    const name = branch?.branchName || "";
-    return name.toUpperCase().startsWith("GOODSHOT") ? name.toUpperCase() : `GOODSHOT ${name}`.trim();
-};
 
 // null or 0 means the event has no cap
 const hasCap = (event) => event.maxParticipants > 0;
@@ -72,6 +68,7 @@ const createReference = () => {
 
 const listedEventsQuery = () => Event.find({
     status: { $in: ["upcoming", "ongoing"] },
+    archived: { $ne: true },
     date: { $gt: new Date(Date.now() - LISTED_FOR_MS) }
 })
     .sort({ date: 1 })
@@ -145,7 +142,7 @@ export const getClientEvent = async (req, res) => {
         const event = isObjectId(req.params.id)
             ? await Event.findById(req.params.id).populate("branchId", "branchName branchCode paymentAccounts")
             : null;
-        if (!event || event.status === "cancelled") {
+        if (!event || event.status === "cancelled" || event.archived === true) {
             return res.status(404).json({ message: "Event not found" });
         }
 
@@ -174,7 +171,7 @@ export const registerForEvent = async (req, res) => {
 
     try {
         const event = isObjectId(req.params.id) ? await Event.findById(req.params.id) : null;
-        if (!event || event.status === "cancelled") {
+        if (!event || event.status === "cancelled" || event.archived === true) {
             return fail(404, "Event not found");
         }
 

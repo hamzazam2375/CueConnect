@@ -29,13 +29,13 @@ export const awardPoints = async ({ user, branchId, points: explicitPoints, amou
             ? { user: userId, "history.paymentId": { $ne: paymentId } }
             : { user: userId };
         const loyalty = await Loyalty.findOneAndUpdate(
-        filter,
-        {
-            $inc: { points },
-            $push: { history: historyEntry("earned", points, description, paymentId) },
-            $setOnInsert: { branchId }
-        },
-        { upsert: true }
+            filter,
+            {
+                $inc: { points },
+                $push: { history: historyEntry("earned", points, description, paymentId) },
+                $setOnInsert: { branchId }
+            },
+            { upsert: true }
         );
         if (!loyalty && paymentId) {
             const existing = await Loyalty.findOne({ user: userId, "history.paymentId": paymentId }).select("_id");
@@ -51,7 +51,7 @@ export const awardPoints = async ({ user, branchId, points: explicitPoints, amou
         branchId,
         type: "loyalty",
         title: `You earned ${points} loyalty ${points === 1 ? "point" : "points"}`,
-        message: `${description}. You can redeem 200 or more points for a free frame or a century-game discount.`,
+        message: `${description}. Once you have more than ${REWARD_THRESHOLD} points, the club can apply them as a discount on your bill.`,
         link: "/client/loyalty"
     });
     return points;

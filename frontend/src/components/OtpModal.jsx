@@ -8,8 +8,6 @@ export default function OtpModal() {
 
     const [digits, setDigits] = useState(["", "", "", "", "", ""]);
     const [resendCooldown, setResendCooldown] = useState(30);
-    const [shakeError, setShakeError] = useState(false);
-    const [successPulse, setSuccessPulse] = useState(false);
     const inputRefs = useRef([]);
 
     // auto-focus first input when modal appears
@@ -25,14 +23,6 @@ export default function OtpModal() {
         const timer = setInterval(() => setResendCooldown((c) => c - 1), 1000);
         return () => clearInterval(timer);
     }, [resendCooldown]);
-
-    // shake on error
-    useEffect(() => {
-        if (error) {
-            setShakeError(true);
-            setTimeout(() => setShakeError(false), 500);
-        }
-    }, [error]);
 
     const handleChange = (index, value) => {
         // only allow digits
@@ -123,7 +113,7 @@ export default function OtpModal() {
 
             {/* modal card */}
             <div
-                className={`relative w-full max-w-sm ${shakeError ? "animate-shake" : ""}`}
+                className={`relative w-full max-w-sm ${error ? "animate-shake" : ""}`}
                 style={{ animation: "otpSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }}
             >
                 <div className="bg-neutral-950/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/20 overflow-hidden">

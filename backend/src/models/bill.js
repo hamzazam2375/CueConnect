@@ -1,12 +1,5 @@
 import mongoose from "mongoose";
 
-const discountItemSchema = new mongoose.Schema({
-    type: { type: String, enum: ["loyalty", "hourly", "weekly"], required: true },
-    name: { type: String, required: true },
-    percent: { type: Number, required: true },
-    amount: { type: Number, required: true }
-}, { _id: false });
-
 const billSchema = new mongoose.Schema(
     {
         branchId: {
@@ -48,15 +41,10 @@ const billSchema = new mongoose.Schema(
             default: 0
         },
 
-        discountBreakdown: {
-            type: [discountItemSchema],
-            default: []
-        },
-
         loyaltyRedemption: {
             reward: {
                 type: String,
-                enum: ["free_frame", "century_discount"],
+                enum: ["loyalty_discount"],
                 default: null
             },
             points: {

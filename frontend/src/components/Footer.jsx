@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Logo from "./Logo";
+import { formatOpeningHours } from "../utils/publicBranches";
 
 const footerLinks = [
     { label: "Home", href: "#home" },
@@ -9,7 +10,8 @@ const footerLinks = [
     { label: "Sign Up", href: "/register" }
 ];
 
-export default function Footer({ branches }) {
+// `branches` comes from GET /api/branches; it is empty while loading or if the request failed
+export default function Footer({ branches = [] }) {
     return (
         <footer className="bg-neutral-950 border-t border-white/10 pt-16 pb-8 px-4">
             <div className="max-w-7xl mx-auto">
@@ -62,9 +64,11 @@ export default function Footer({ branches }) {
                             {branches.map((branch) => (
                                 <li key={branch.id}>
                                     <p className="text-gray-300 text-sm font-medium">{branch.name}</p>
-                                    <p className="text-gray-500 text-xs">{branch.address}</p>
+                                    {branch.address && <p className="text-gray-500 text-xs">{branch.address}</p>}
+                                    <p className="text-gray-500 text-xs">{formatOpeningHours(branch)}</p>
                                 </li>
                             ))}
+                            {!branches.length && <li className="text-gray-500 text-sm">Branch details coming soon.</li>}
                         </ul>
                     </div>
 
@@ -72,13 +76,13 @@ export default function Footer({ branches }) {
                     <div>
                         <h4 className="text-white font-semibold mb-4">Contact</h4>
                         <ul className="space-y-3">
-                            {branches.map((branch) => (
+                            {branches.filter((branch) => branch.phone).map((branch) => (
                                 <li key={branch.id} className="text-sm">
                                     <p className="text-gray-300 font-medium">{branch.name}</p>
-                                    <p className="text-gray-500">{branch.phone}</p>
-                                    <p className="text-gray-500">{branch.email}</p>
+                                    <a href={`tel:${branch.phone.replace(/[\s-]/g, "")}`} className="text-gray-500 hover:text-red-400">{branch.phone}</a>
                                 </li>
                             ))}
+                            {!branches.some((branch) => branch.phone) && <li className="text-gray-500 text-sm">Visit any branch or sign up to book online.</li>}
                         </ul>
                     </div>
                 </div>

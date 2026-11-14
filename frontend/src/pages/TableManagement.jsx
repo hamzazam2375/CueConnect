@@ -12,7 +12,7 @@ const emptyForm = { name: "", tableType: "snooker", status: "available", pricePe
 
 // ── modal ──
 
-function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, title }) {
+function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, title, error, isOccupied }) {
     if (!open) return null;
 
     const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -20,9 +20,9 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
     const labelClass = "block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5";
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/10 p-6 sm:p-8 animate-[fadeIn_0.2s_ease-out]">
+            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/10 p-6 sm:p-8 animate-[fadeIn_0.2s_ease-out]">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-white">{title}</h2>
                     <button type="button" onClick={onClose} className="text-neutral-500 hover:text-white transition-colors p-1" aria-label="Close">
@@ -46,9 +46,10 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
                         </div>
                         <div>
                             <label htmlFor="table-status" className={labelClass}>Status</label>
-                            <select id="table-status" value={form.status} onChange={update("status")} className={`${inputClass} appearance-none cursor-pointer`}>
+                            {/* occupied is set automatically while a game is running */}
+                            <select id="table-status" value={form.status} onChange={update("status")} disabled={isOccupied} className={`${inputClass} appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}>
+                                {isOccupied && <option value="occupied" className="bg-neutral-900">Occupied (game in progress)</option>}
                                 <option value="available" className="bg-neutral-900">Available</option>
-                                <option value="occupied" className="bg-neutral-900">Occupied</option>
                                 <option value="maintenance" className="bg-neutral-900">Maintenance</option>
                             </select>
                         </div>
@@ -63,6 +64,7 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
                                     id="price-century"
                                     type="number"
                                     min="0"
+                                    step="any"
                                     required
                                     value={form.centuryRate}
                                     onChange={(e) => {
@@ -83,6 +85,7 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
                                     id="price-hour"
                                     type="number"
                                     min="0"
+                                    step="any"
                                     required
                                     value={form.pricePerHour}
                                     onChange={(e) => setForm((f) => ({ ...f, pricePerHour: e.target.value, hourManual: true }))}
@@ -92,11 +95,13 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
                             </div>
                             <div>
                                 <label htmlFor="price-frame" className={labelClass}>Per Frame</label>
-                                <input id="price-frame" type="number" min="0" required value={form.frameRate} onChange={update("frameRate")} placeholder="0" className={inputClass} />
+                                <input id="price-frame" type="number" min="0" step="any" required value={form.frameRate} onChange={update("frameRate")} placeholder="0" className={inputClass} />
                             </div>
                         </div>
-                        <p className="mt-2 text-[11px] text-neutral-600">Hour rate defaults to century × 60. You can override it.</p>
+                        <p className="mt-2 text-[11px] text-neutral-600">Hour rate (used for bookings) defaults to century × 60. You can override it.</p>
                     </div>
+
+                    {error && <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400" role="alert">{error}</p>}
 
                     <div className="flex items-center gap-3 pt-2">
                         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] text-sm font-semibold text-neutral-300 hover:bg-white/[0.07] transition-colors">
@@ -119,14 +124,14 @@ function TableModal({ open, onClose, onSubmit, form, setForm, isSubmitting, titl
 function DeleteModal({ open, onClose, onConfirm, tableName, isDeleting }) {
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-label="Delete table">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
             <div className="relative w-full max-w-sm bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl p-6 text-center animate-[fadeIn_0.2s_ease-out]">
                 <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                     <Icon name="trash" className="h-6 w-6 text-red-500" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Delete Table</h3>
-                <p className="mt-2 text-sm text-neutral-400">Are you sure you want to delete <span className="font-semibold text-white">{tableName}</span>? This action cannot be undone.</p>
+                <p className="mt-2 text-sm text-neutral-400">Are you sure you want to delete <span className="font-semibold text-white">{tableName}</span>? This action cannot be undone. Tables with a live game or upcoming bookings can't be deleted — set them to maintenance instead.</p>
                 <div className="flex items-center gap-3 mt-6">
                     <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] text-sm font-semibold text-neutral-300 hover:bg-white/[0.07] transition-colors">Cancel</button>
                     <button type="button" onClick={onConfirm} disabled={isDeleting} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:bg-red-900 disabled:cursor-not-allowed text-sm font-bold text-white transition-colors flex items-center justify-center gap-2">
@@ -211,15 +216,23 @@ export default function TableManagement() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const fetchTables = () => {
-        setLoading(true);
-        api.get("/admin/tables")
-            .then(({ data }) => setTables(data.tables || []))
-            .catch(() => setError("Failed to load tables"))
-            .finally(() => setLoading(false));
-    };
+    const fetchTables = () => api.get("/admin/tables")
+        .then(({ data }) => setTables(data.tables || []))
+        .catch(() => setError("Failed to load tables"))
+        .finally(() => setLoading(false));
 
     useEffect(() => { fetchTables(); }, []);
+
+    useEffect(() => {
+        if (!modalOpen && !deleteTarget) return undefined;
+        const onKey = (event) => {
+            if (event.key !== "Escape") return;
+            setModalOpen(false);
+            setDeleteTarget(null);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [modalOpen, deleteTarget]);
 
     useEffect(() => {
         if (success) {
@@ -257,7 +270,7 @@ export default function TableManagement() {
             const payload = {
                 name: form.name.trim(),
                 tableType: form.tableType,
-                status: form.status,
+                ...(form.status === "occupied" ? {} : { status: form.status }),
                 pricePerHour: Number(form.pricePerHour),
                 frameRate: Number(form.frameRate),
                 centuryRate: Number(form.centuryRate),
@@ -318,6 +331,8 @@ export default function TableManagement() {
                 setForm={setForm}
                 isSubmitting={isSubmitting}
                 title={editingTable ? "Edit Table" : "Add New Table"}
+                error={modalOpen ? error : null}
+                isOccupied={editingTable?.status === "occupied"}
             />
             <DeleteModal
                 open={!!deleteTarget}

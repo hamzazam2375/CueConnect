@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import Branch from "../models/branch.js";
 import User from "../models/user.js";
 import { serializePaymentAccount } from "../utils/payments.js";
+import { adminPasswordError } from "../utils/passwordPolicy.js";
 
 const METHODS = ["jazzcash", "easypaisa", "bank"];
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -60,8 +61,13 @@ export const updateBranchSettings = async (req, res) => {
         if (!Number.isInteger(openingTime) || openingTime < 0 || openingTime >= 24 * 60) {
             return res.status(400).json({ message: "Choose a valid opening time" });
         }
-        if (!Number.isInteger(closingTime) || closingTime <= 0) {
+        // midnight (0) is a valid closing time; it rolls over to the next day below
+        if (!Number.isInteger(closingTime) || closingTime < 0 || closingTime > 48 * 60) {
             return res.status(400).json({ message: "Choose a valid closing time" });
+        }
+        // bookings are sold in whole hours, so the club must open and close on the hour
+        if (openingTime % 60 !== 0 || closingTime % 60 !== 0) {
+            return res.status(400).json({ message: "Opening and closing times must be on the hour (e.g. 12:00, 02:00)" });
         }
         if (closingTime <= openingTime) closingTime += 24 * 60;
         if (closingTime - openingTime < 60 || closingTime - openingTime > 18 * 60) {
@@ -177,9 +183,8 @@ export const updateAdminPassword = async (req, res) => {
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ message: "Current password and new password are required" });
         }
-        if (String(newPassword).length < 8) {
-            return res.status(400).json({ message: "New password must be at least 8 characters" });
-        }
+        const weakPassword = adminPasswordError(newPassword);
+        if (weakPassword) return res.status(400).json({ message: weakPassword });
         if (currentPassword === newPassword) {
             return res.status(400).json({ message: "New password must be different from your current password" });
         }

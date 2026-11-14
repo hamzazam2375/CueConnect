@@ -6,9 +6,11 @@ import Booking from "../models/booking.js";
 import Bill from "../models/bill.js";
 import Loyalty from "../models/loyalty.js";
 import { allocateCustomerCode, displayCustomerCode } from "../utils/customerCode.js";
+import { passwordError } from "../utils/passwordPolicy.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const phoneRegex = /^\+?[0-9][0-9\s-]{8,18}$/;
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const serializeListCustomer = (user, loyaltyPoints = 0) => ({
@@ -118,14 +120,20 @@ export const getCustomer = async (req, res) => {
 export const createCustomer = async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
-        if (!firstName || !lastName || !email || !password) {
+        const phone = String(req.body.phone || "").trim();
+        if (!String(firstName || "").trim() || !String(lastName || "").trim() || !email || !password) {
             return res.status(400).json({ message: "Name, email, and password are required" });
         }
-        if (!emailRegex.test(email)) {
+        if (!emailRegex.test(String(email).trim())) {
             return res.status(400).json({ message: "Please enter a valid email address" });
         }
-        if (String(password).length < 8) {
-            return res.status(400).json({ message: "Password must be at least 8 characters" });
+        if (phone && !phoneRegex.test(phone)) {
+            return res.status(400).json({ message: "Enter a valid phone number" });
+        }
+        // same rules a client meets when signing up themselves
+        const weakPassword = passwordError(password);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
         }
 
         const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
@@ -137,6 +145,7 @@ export const createCustomer = async (req, res) => {
             firstName: String(firstName).trim(),
             lastName: String(lastName).trim(),
             email: String(email).toLowerCase().trim(),
+            phone: phone || undefined,
             password: await bcrypt.hash(password, 10),
             role: "client",
             customerCode: await allocateCustomerCode(),
@@ -164,7 +173,7 @@ export const updateCustomer = async (req, res) => {
             return res.status(404).json({ message: "Registered customer not found" });
         }
 
-        const { firstName, lastName, email, isActive } = req.body;
+        const { firstName, lastName, email, phone, isActive } = req.body;
         if (firstName != null) {
             if (!String(firstName).trim()) return res.status(400).json({ message: "First name is required" });
             customer.firstName = String(firstName).trim();
@@ -183,6 +192,13 @@ export const updateCustomer = async (req, res) => {
                 return res.status(409).json({ message: "An account with this email already exists" });
             }
             customer.email = nextEmail;
+        }
+        if (phone != null) {
+            const nextPhone = String(phone).trim();
+            if (nextPhone && !phoneRegex.test(nextPhone)) {
+                return res.status(400).json({ message: "Enter a valid phone number" });
+            }
+            customer.phone = nextPhone;
         }
         if (isActive != null) {
             customer.isActive = Boolean(isActive);

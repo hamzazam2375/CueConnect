@@ -3,7 +3,7 @@ import Game from "../models/game.js";
 import Bill from "../models/bill.js";
 import Table from "../models/table.js";
 import User from "../models/user.js";
-import { OPEN_BILL_STATUSES, createBillReference, reapplyDiscountBreakdown, roundMoney } from "../utils/billMath.js";
+import { OPEN_BILL_STATUSES, createBillReference, roundMoney, syncBillTotals } from "../utils/billMath.js";
 import { displayCustomerCode } from "../utils/customerCode.js";
 import { awardGamePoints } from "../services/loyalty.js";
 
@@ -106,7 +106,6 @@ const findOrCreateBill = async ({ branchId, payerUser, payerName, amount, gameId
             games: [gameId],
             originalAmount: roundMoney(amount),
             discountAmount: 0,
-            discountBreakdown: [],
             totalAmount: roundMoney(amount),
             paidAmount: 0,
             remainingBalance: roundMoney(amount),
@@ -117,7 +116,7 @@ const findOrCreateBill = async ({ branchId, payerUser, payerName, amount, gameId
 
     bill.games.push(gameId);
     bill.originalAmount = roundMoney((bill.originalAmount || bill.totalAmount || 0) + amount);
-    reapplyDiscountBreakdown(bill);
+    syncBillTotals(bill);
     await bill.save();
     return bill;
 };

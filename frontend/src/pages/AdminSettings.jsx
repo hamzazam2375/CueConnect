@@ -4,19 +4,28 @@ import AdminLayout, { Icon } from "../components/AdminLayout";
 import { inputClass, labelClass } from "../components/StartGameModal";
 import api from "../services/api";
 import { fetchCurrentUser } from "../store/authSlice";
+import { apiError, formatClock } from "../utils/adminFormat";
 
 const emptyAccount = { method: "jazzcash", provider: "", accountTitle: "", accountNumber: "" };
 const METHOD_LABELS = { jazzcash: "JazzCash", easypaisa: "Easypaisa", bank: "Bank" };
 
+// bookings are sold by the hour, so the club opens and closes on the hour
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => hour * 60);
+// stored hours can run past midnight (e.g. 1560 = 2:00 AM); fold them back onto one day's clock
 const minutesToInput = (mins) => {
-    const value = ((Number(mins) % 1440) + 1440) % 1440;
-    return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    const ofDay = ((Number(mins) % 1440) + 1440) % 1440;
+    return String(ofDay - (ofDay % 60));
 };
+const inputToMinutes = (value) => Number(value) || 0;
 
-const inputToMinutes = (value) => {
-    const [hours, minutes] = String(value || "00:00").split(":").map(Number);
-    return (hours || 0) * 60 + (minutes || 0);
-};
+// same rules the server applies to admin passwords
+const ADMIN_PASSWORD_RULES = [
+    { label: "8+ characters", test: (value) => value.length >= 8 },
+    { label: "Uppercase", test: (value) => /[A-Z]/.test(value) },
+    { label: "Lowercase", test: (value) => /[a-z]/.test(value) },
+    { label: "Digit", test: (value) => /\d/.test(value) },
+    { label: "Special character", test: (value) => /[^A-Za-z0-9]/.test(value) }
+];
 
 function Notice({ type, children }) {
     const ok = type === "success";
@@ -39,7 +48,7 @@ export default function AdminSettings() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [branch, setBranch] = useState(null);
-    const [branchForm, setBranchForm] = useState({ branchName: "", address: "", phone: "", opening: "12:00", closing: "02:00" });
+    const [branchForm, setBranchForm] = useState({ branchName: "", address: "", phone: "", opening: "720", closing: "120" });
     const [branchMsg, setBranchMsg] = useState(null);
     const [branchSaving, setBranchSaving] = useState(false);
 
@@ -68,26 +77,20 @@ export default function AdminSettings() {
         });
     };
 
-    const load = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const { data } = await api.get("/admin/settings");
-            applyBranch(data.branch);
-            setProfile({
-                firstName: data.admin.firstName || "",
-                lastName: data.admin.lastName || "",
-                email: data.admin.email || "",
-                phone: data.admin.phone || ""
-            });
-        } catch {
-            setError("Settings could not be loaded.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        api.get("/admin/settings")
+            .then(({ data }) => {
+                applyBranch(data.branch);
+                setProfile({
+                    firstName: data.admin.firstName || "",
+                    lastName: data.admin.lastName || "",
+                    email: data.admin.email || "",
+                    phone: data.admin.phone || ""
+                });
+            })
+            .catch(() => setError("Settings could not be loaded."))
+            .finally(() => setLoading(false));
+    }, []);
 
     const saveBranch = async (event) => {
         event.preventDefault();
@@ -104,7 +107,7 @@ export default function AdminSettings() {
             applyBranch(data.branch);
             setBranchMsg({ type: "success", text: "Branch settings saved." });
         } catch (err) {
-            setBranchMsg({ type: "error", text: err.response?.data?.message || "Branch settings could not be saved." });
+            setBranchMsg({ type: "error", text: apiError(err, "Branch settings could not be saved.") });
         } finally {
             setBranchSaving(false);
         }
@@ -122,13 +125,15 @@ export default function AdminSettings() {
             setEditingId(null);
             setAccountMsg({ type: "success", text: editingId ? "Payment account updated." : "Payment account added." });
         } catch (err) {
-            setAccountMsg({ type: "error", text: err.response?.data?.message || "Payment account could not be saved." });
+            setAccountMsg({ type: "error", text: apiError(err, "Payment account could not be saved.") });
         } finally {
             setAccountSaving(false);
         }
     };
 
-    const removeAccount = async (id) => {
+    const removeAccount = async (account) => {
+        const { id } = account;
+        if (!window.confirm(`Remove the ${METHOD_LABELS[account.method] || account.method} account "${account.accountTitle}"? Clients will no longer see it.`)) return;
         setAccountMsg(null);
         try {
             const { data } = await api.delete(`/admin/settings/accounts/${id}`);
@@ -139,7 +144,7 @@ export default function AdminSettings() {
             }
             setAccountMsg({ type: "success", text: "Payment account removed." });
         } catch (err) {
-            setAccountMsg({ type: "error", text: err.response?.data?.message || "Payment account could not be removed." });
+            setAccountMsg({ type: "error", text: apiError(err, "Payment account could not be removed.") });
         }
     };
 
@@ -158,7 +163,7 @@ export default function AdminSettings() {
             setProfileMsg({ type: "success", text: "Profile updated." });
             dispatch(fetchCurrentUser());
         } catch (err) {
-            setProfileMsg({ type: "error", text: err.response?.data?.message || "Profile could not be updated." });
+            setProfileMsg({ type: "error", text: apiError(err, "Profile could not be updated.") });
         } finally {
             setProfileSaving(false);
         }
@@ -167,6 +172,10 @@ export default function AdminSettings() {
     const savePassword = async (event) => {
         event.preventDefault();
         setPasswordMsg(null);
+        if (ADMIN_PASSWORD_RULES.some((rule) => !rule.test(passwords.newPassword))) {
+            setPasswordMsg({ type: "error", text: "The new password does not meet all the rules below." });
+            return;
+        }
         if (passwords.newPassword !== passwords.confirmPassword) {
             setPasswordMsg({ type: "error", text: "New passwords do not match." });
             return;
@@ -180,7 +189,7 @@ export default function AdminSettings() {
             setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
             setPasswordMsg({ type: "success", text: "Password changed." });
         } catch (err) {
-            setPasswordMsg({ type: "error", text: err.response?.data?.message || "Password could not be changed." });
+            setPasswordMsg({ type: "error", text: apiError(err, "Password could not be changed.") });
         } finally {
             setPasswordSaving(false);
         }
@@ -238,15 +247,19 @@ export default function AdminSettings() {
                                     <input value={branchForm.phone} onChange={(e) => setBranchForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+92 300 1234567" className={inputClass} />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>Opens</label>
-                                    <input type="time" required value={branchForm.opening} onChange={(e) => setBranchForm((f) => ({ ...f, opening: e.target.value }))} className={inputClass} />
+                                    <label htmlFor="branch-opens" className={labelClass}>Opens</label>
+                                    <select id="branch-opens" value={branchForm.opening} onChange={(e) => setBranchForm((f) => ({ ...f, opening: e.target.value }))} className={`${inputClass} appearance-none`}>
+                                        {HOUR_OPTIONS.map((minutes) => <option key={minutes} value={minutes} className="bg-neutral-900">{formatClock(minutes)}</option>)}
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className={labelClass}>Closes</label>
-                                    <input type="time" required value={branchForm.closing} onChange={(e) => setBranchForm((f) => ({ ...f, closing: e.target.value }))} className={inputClass} />
+                                    <label htmlFor="branch-closes" className={labelClass}>Closes</label>
+                                    <select id="branch-closes" value={branchForm.closing} onChange={(e) => setBranchForm((f) => ({ ...f, closing: e.target.value }))} className={`${inputClass} appearance-none`}>
+                                        {HOUR_OPTIONS.map((minutes) => <option key={minutes} value={minutes} className="bg-neutral-900">{formatClock(minutes)}</option>)}
+                                    </select>
                                 </div>
                             </div>
-                            <p className="text-xs text-neutral-600">If closing is earlier than opening, it is treated as the next morning (for example 12:00–02:00).</p>
+                            <p className="text-xs text-neutral-600">If closing is earlier than opening, it is treated as the next morning (for example 12:00 PM – 2:00 AM). Clients can book any whole hour inside these times.</p>
                             {branchMsg && <Notice type={branchMsg.type}>{branchMsg.text}</Notice>}
                             <button type="submit" disabled={branchSaving} className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold hover:bg-red-500 disabled:bg-red-900">{branchSaving ? "Saving..." : "Save branch"}</button>
                         </form>
@@ -263,7 +276,7 @@ export default function AdminSettings() {
                                     </div>
                                     <div className="flex gap-2">
                                         <button type="button" onClick={() => { setEditingId(account.id); setAccountForm({ method: account.method, provider: account.provider || "", accountTitle: account.accountTitle, accountNumber: account.accountNumber }); }} className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-bold">Edit</button>
-                                        <button type="button" onClick={() => removeAccount(account.id)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-bold text-rose-400">Remove</button>
+                                        <button type="button" onClick={() => removeAccount(account)} className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-bold text-rose-400">Remove</button>
                                     </div>
                                 </div>
                             ))}
@@ -328,11 +341,16 @@ export default function AdminSettings() {
                         <form onSubmit={savePassword} className="grid max-w-xl gap-3">
                             <div>
                                 <label className={labelClass}>Current password</label>
-                                <input required type="password" value={passwords.currentPassword} onChange={(e) => setPasswords((f) => ({ ...f, currentPassword: e.target.value }))} className={inputClass} />
+                                <input required type="password" autoComplete="current-password" value={passwords.currentPassword} onChange={(e) => setPasswords((f) => ({ ...f, currentPassword: e.target.value }))} className={inputClass} />
                             </div>
                             <div>
                                 <label className={labelClass}>New password</label>
-                                <input required type="password" minLength={8} value={passwords.newPassword} onChange={(e) => setPasswords((f) => ({ ...f, newPassword: e.target.value }))} className={inputClass} />
+                                <input required type="password" autoComplete="new-password" minLength={8} value={passwords.newPassword} onChange={(e) => setPasswords((f) => ({ ...f, newPassword: e.target.value }))} className={inputClass} />
+                                <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                                    {ADMIN_PASSWORD_RULES.map((rule) => (
+                                        <li key={rule.label} className={rule.test(passwords.newPassword) ? "text-emerald-400" : "text-neutral-600"}>{rule.test(passwords.newPassword) ? "✓" : "•"} {rule.label}</li>
+                                    ))}
+                                </ul>
                             </div>
                             <div>
                                 <label className={labelClass}>Confirm new password</label>
