@@ -10,7 +10,9 @@ const timeAgo = (value) => {
     return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-export default function NotificationBell() {
+// `align` is the side of the bell the panel lines up with: "left" when the bell sits on the left of a header
+// (client pages), "right" when it sits on the right (admin header), so the panel always opens toward the page
+export default function NotificationBell({ align = "left" }) {
     const { notifications, unreadCount, openNotification, markAllRead } = useNotifications();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
@@ -41,7 +43,8 @@ export default function NotificationBell() {
             </button>
 
             {isOpen && (
-                <div className="absolute left-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0b0b0b] text-white shadow-2xl shadow-black">
+                // phones: pinned inside the viewport under the header; wider screens: dropped down from the bell
+                <div className={`fixed inset-x-4 top-[4.5rem] z-50 overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0b0b0b] text-white shadow-2xl shadow-black sm:absolute sm:inset-x-auto sm:top-12 sm:w-[360px] ${align === "right" ? "sm:right-0" : "sm:left-0"}`} role="dialog" aria-label="Notifications">
                     <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3"><p className="text-sm font-bold">Notifications</p>{unreadCount > 0 && <button type="button" onClick={markAllRead} className="text-[11px] font-bold text-neutral-500 transition-colors hover:text-red-400">Mark all read</button>}</div>
                     <div className="max-h-96 overflow-y-auto">
                         {notifications.length ? notifications.map((notification) => (
