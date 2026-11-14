@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import NotificationsProvider from "./NotificationsProvider";
 import NotificationBell from "./NotificationBell";
@@ -16,8 +16,6 @@ const sidebarItems = [
     { key: "finance",   label: "Finance & Reports",    icon: "chart",   href: "/admin/finance" },
     { key: "settings",  label: "Settings",             icon: "settings", href: "/admin/settings" },
 ];
-
-const implementedKeys = ["dashboard", "tables", "games", "billing", "bookings", "customers", "finance", "settings"];
 
 export function Icon({ name, className = "h-5 w-5" }) {
     const paths = {
@@ -61,7 +59,7 @@ export function Icon({ name, className = "h-5 w-5" }) {
     );
 }
 
-function SideNavItem({ item, active }) {
+function SideNavItem({ item, active, onNavigate }) {
     const classes = `group flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-all duration-300 ${
         active
             ? "bg-red-600 text-white shadow-lg shadow-red-950/40"
@@ -69,22 +67,26 @@ function SideNavItem({ item, active }) {
     }`;
 
     return (
-        <Link to={item.href} className={classes}>
+        <Link to={item.href} className={classes} onClick={onNavigate} aria-current={active ? "page" : undefined}>
             <Icon name={item.icon} className={`h-[18px] w-[18px] transition-transform duration-300 ${active ? "" : "group-hover:scale-110"}`} />
             <span>{item.label}</span>
-            {!active && !implementedKeys.includes(item.key) && (
-                <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-neutral-600">Soon</span>
-            )}
         </Link>
     );
 }
 
-function AdminLayoutContent({ title, children }) {
+export default function AdminLayout({ title, children }) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const location = useLocation();
     const { user, isLoading } = useSelector((state) => state.auth);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        if (!mobileMenuOpen) return undefined;
+        const onKey = (event) => { if (event.key === "Escape") setMobileMenuOpen(false); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [mobileMenuOpen]);
 
     const initials = `${user?.firstName?.[0] || "A"}${user?.lastName?.[0] || ""}`.toUpperCase();
     const dateLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -117,7 +119,7 @@ function AdminLayoutContent({ title, children }) {
                 </div>
                 <div className="mt-10 px-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600">Management</div>
                 <nav className="mt-3 space-y-1.5" aria-label="Admin navigation">
-                    {sidebarItems.map((item) => <SideNavItem key={item.key} item={item} active={activeKey === item.key} />)}
+                    {sidebarItems.map((item) => <SideNavItem key={item.key} item={item} active={activeKey === item.key} onNavigate={() => setMobileMenuOpen(false)} />)}
                 </nav>
                 <div className="mt-auto">
                     <div className="mb-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
@@ -158,7 +160,7 @@ function AdminLayoutContent({ title, children }) {
                         </div>
                     </div>
                     <nav className="dashboard-mobile-nav flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden" aria-label="Mobile admin navigation">
-                        {sidebarItems.slice(0, 5).map((item) => (
+                        {sidebarItems.map((item) => (
                             <Link key={item.key} to={item.href} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${activeKey === item.key ? "bg-red-600 text-white" : "border border-white/[0.08] bg-white/[0.03] text-neutral-400"}`}>
                                 {item.label}
                             </Link>
@@ -178,6 +180,7 @@ function AdminLayoutContent({ title, children }) {
     );
 }
 
-export default function AdminLayout({ title, children }) {
-    return <NotificationsProvider basePath="/admin"><AdminLayoutContent title={title}>{children}</AdminLayoutContent></NotificationsProvider>;
+// route-level wrapper: keeps one notifications socket open while the admin moves between pages
+export function AdminShell() {
+    return <NotificationsProvider basePath="/admin"><Outlet /></NotificationsProvider>;
 }

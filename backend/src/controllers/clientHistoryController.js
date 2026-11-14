@@ -3,15 +3,11 @@ import Game from "../models/game.js";
 import Loyalty from "../models/loyalty.js";
 import Payment from "../models/payment.js";
 import TournamentReg from "../models/tournamentReg.js";
+import { formatBranchName } from "../utils/branchName.js";
 
 // each list is capped so a long-time customer's history stays quick to load
 const LIST_LIMIT = 100;
 const ACTIVITY_LIMIT = 60;
-
-const formatBranchName = (branch) => {
-    const name = branch?.branchName || "";
-    return name.toUpperCase().startsWith("GOODSHOT") ? name.toUpperCase() : `GOODSHOT ${name}`.trim();
-};
 
 const capitalize = (value = "") => value.charAt(0).toUpperCase() + value.slice(1);
 

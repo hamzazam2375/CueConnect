@@ -4,10 +4,11 @@ import Branch from "../models/branch.js";
 import Table from "../models/table.js";
 import Booking from "../models/booking.js";
 import Waitlist from "../models/waitlist.js";
-import { notifyBranchAdmins, notifyUser } from "../services/notifications.js";
+import { notifyBranchAdmins } from "../services/notifications.js";
 import { POINT_VALUE, maxRedeemablePoints, redeemPoints, restorePoints } from "../services/loyalty.js";
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
+import { formatBranchName } from "../utils/branchName.js";
 
 export const MAX_BOOKING_DAYS = 30;
 const ALLOWED_DURATIONS = [1, 2, 3];
@@ -50,11 +51,6 @@ const slotHasStarted = (dateKey, startTime) => {
     return new Date(date.getTime() + startTime * 60 * 1000) <= new Date();
 };
 
-const formatBranchName = (branch) => {
-    const name = branch.branchName || "";
-    return name.toUpperCase().startsWith("GOODSHOT") ? name.toUpperCase() : `GOODSHOT ${name}`.trim();
-};
-
 const hoursFrom = (branch) => {
     const openingTime = Number(branch?.openingTime);
     const closingTime = Number(branch?.closingTime);
@@ -84,15 +80,18 @@ const serializeTable = (table) => ({
     centuryRate: table.centuryRate
 });
 
+const REMOVED_TABLE = { name: "Removed table", tableType: null };
+
 const serializeBooking = (booking) => {
-    const table = booking.table;
+    // the table may have been deleted by the club after the booking was made
+    const table = booking.table || REMOVED_TABLE;
     const branch = booking.branchId;
 
     return {
         reference: booking.reference,
         branchId: String(branch._id || branch),
         branchName: branch.branchName ? formatBranchName(branch) : "",
-        tableId: String(table._id || table),
+        tableId: table._id ? String(table._id) : null,
         tableName: table.name,
         tableType: table.tableType,
         date: toDateKey(booking.date),
@@ -197,14 +196,14 @@ const waitlistStatus = (entry) => (
 );
 
 const serializeWaitlistEntry = (entry) => {
-    const table = entry.table;
+    const table = entry.table || REMOVED_TABLE;
     const branch = entry.branchId;
 
     return {
         id: String(entry._id),
         branchId: String(branch._id || branch),
         branchName: branch.branchName ? formatBranchName(branch) : "",
-        tableId: String(table._id || table),
+        tableId: table._id ? String(table._id) : null,
         tableName: table.name,
         tableType: table.tableType,
         date: toDateKey(entry.date),
@@ -222,39 +221,8 @@ const populateWaitlist = (query) => query
     .populate("branchId", "branchName branchCode openingTime closingTime");
 
 // Tells every waiting client whose whole slot on this table is now free; the first to book gets it.
-// Call after a booking stops holding a slot (client cancel, reschedule, table change, admin reject).
-// It never throws, so callers can run it after responding.
-export const releaseSlot = async ({ tableId, date, startTime, endTime }) => {
-    try {
-        const entries = await populateWaitlist(Waitlist.find({
-            table: tableId,
-            date,
-            status: "waiting",
-            startTime: { $lt: endTime },
-            endTime: { $gt: startTime }
-        }));
-
-        for (const entry of entries) {
-            if (slotHasStarted(toDateKey(entry.date), entry.startTime)) continue;
-            if (await findOverlap({ tableId, date, startTime: entry.startTime, endTime: entry.endTime })) continue;
-
-            entry.status = "notified";
-            entry.notifiedAt = new Date();
-            await entry.save();
-
-            await notifyUser({
-                user: entry.user,
-                branchId: entry.branchId._id,
-                type: "waitlist",
-                title: "Your waitlisted table is free",
-                message: `${entry.table.name} at ${formatBranchName(entry.branchId)} is free on ${formatDay(entry.date)}, ${formatClock(entry.startTime)} – ${formatClock(entry.endTime)}. Book it before someone else does.`,
-                link: "/client/bookings?tab=waitlist"
-            });
-        }
-    } catch (error) {
-        console.error("Release slot error:", error.message);
-    }
-};
+// Kept as a hook for booking lifecycle callers; waitlist notifications are sent manually by admins.
+export const releaseSlot = async () => {};
 
 const loadOwnedBooking = async (reference, userId) => {
     const booking = await populateBooking(Booking.findOne({

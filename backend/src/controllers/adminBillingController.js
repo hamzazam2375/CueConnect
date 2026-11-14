@@ -2,30 +2,30 @@ import mongoose from "mongoose";
 import Bill from "../models/bill.js";
 import Game from "../models/game.js";
 import Payment from "../models/payment.js";
-import Discount from "../models/discount.js";
 import Loyalty from "../models/loyalty.js";
 import { awardPoints, POINT_VALUE, REWARD_THRESHOLD, redeemPoints, restorePoints } from "../services/loyalty.js";
-import { customerCode, ensureBillReference, roundMoney, syncBillTotals } from "../utils/billMath.js";
+import { customerCode, ensureBillReference, loyaltyDiscountOf, manualDiscountOf, roundMoney, syncBillTotals } from "../utils/billMath.js";
 import { recordReceivedIncome, sourceTypeFromGames } from "../utils/recordIncome.js";
 import { buildReceiptPdf } from "../utils/receiptPdf.js";
+import { displayCustomerCode } from "../utils/customerCode.js";
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 const STATUS_ORDER = { pending: 0, partial: 1, paid: 2 };
 
 const populateBill = (query) => query
-    .populate("payerUser", "firstName lastName email phone")
+    .populate("payerUser", "firstName lastName email phone customerCode")
     .populate({
         path: "games",
         populate: [
             { path: "table", select: "name tableType" },
-            { path: "user", select: "firstName lastName" }
+            { path: "user", select: "firstName lastName customerCode" }
         ]
     });
 
 const serializeGameLine = (game) => ({
     id: String(game._id),
     playerName: game.playerName,
-    customerId: game.user?._id ? customerCode(game.user._id) : null,
+    customerId: game.user?._id ? displayCustomerCode(game.user) : null,
     tableName: game.table?.name || "Unknown table",
     tableType: game.table?.tableType || null,
     type: game.type,
@@ -48,7 +48,7 @@ const serializeBill = (bill, payments = [], loyalty = null) => {
         id: String(bill._id),
         reference: bill.reference || customerCode(bill._id),
         payerName: bill.payerName,
-        customerId: payerUser ? customerCode(payerUser._id) : null,
+        customerId: payerUser ? displayCustomerCode(payerUser) : null,
         payerUser: payerUser ? {
             id: String(payerUser._id),
             firstName: payerUser.firstName,
@@ -61,7 +61,8 @@ const serializeBill = (bill, payments = [], loyalty = null) => {
         games: games.map(serializeGameLine),
         originalAmount: bill.originalAmount,
         discountAmount: bill.discountAmount,
-        discountBreakdown: bill.discountBreakdown || [],
+        manualDiscount: manualDiscountOf(bill),
+        loyaltyDiscount: loyaltyDiscountOf(bill),
         loyaltyPoints: loyalty?.points || 0,
         loyaltyRedemption: bill.loyaltyRedemption?.reward ? {
             reward: bill.loyaltyRedemption.reward,
@@ -69,12 +70,8 @@ const serializeBill = (bill, payments = [], loyalty = null) => {
             amount: bill.loyaltyRedemption.amount,
             redeemedAt: bill.loyaltyRedemption.redeemedAt
         } : null,
-        eligibleRewards: bill.status !== "paid" && !bill.loyaltyRedemption?.reward && payerUser && (loyalty?.points || 0) >= REWARD_THRESHOLD
-            ? [
-                ...(games.some((game) => game.type === "frame") ? [{ key: "free_frame", label: "One free frame", points: REWARD_THRESHOLD }] : []),
-                ...(games.some((game) => game.type === "century") ? [{ key: "century_discount", label: "Century game discount", points: REWARD_THRESHOLD }] : [])
-            ]
-            : [],
+        loyaltyThreshold: REWARD_THRESHOLD,
+        loyaltyDiscountAvailable: Boolean(bill.status !== "paid" && !bill.loyaltyRedemption?.reward && payerUser && (loyalty?.points || 0) > REWARD_THRESHOLD),
         payableAmount: bill.totalAmount,
         paidAmount: bill.paidAmount,
         remainingBalance: bill.remainingBalance,
@@ -98,17 +95,23 @@ const loadPayments = async (billId) => Payment.find({
     status: "completed"
 }).sort({ createdAt: -1 });
 
-const loadLoyalty = (user) => user ? Loyalty.findOne({ user: user._id || user }).select("points") : null;
-
-const weekdayName = () => new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
-
-const inHourWindow = (window) => {
-    if (!window || !window.includes("-")) return false;
-    const [start, end] = window.split("-");
-    const now = new Date();
-    const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    return current >= start && current <= end;
+// one query for every bill in a list instead of one per bill
+const loadPaymentsByBill = async (billIds) => {
+    const payments = await Payment.find({
+        type: "bill",
+        referenceId: { $in: billIds },
+        status: "completed"
+    }).sort({ createdAt: -1 });
+    const grouped = new Map();
+    payments.forEach((payment) => {
+        const key = String(payment.referenceId);
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(payment);
+    });
+    return grouped;
 };
+
+const loadLoyalty = (user) => user ? Loyalty.findOne({ user: user._id || user }).select("points") : null;
 
 export const listBills = async (req, res) => {
     try {
@@ -125,11 +128,7 @@ export const listBills = async (req, res) => {
         if (payer) filter.payerName = new RegExp(payer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
         let bills = await populateBill(Bill.find(filter));
-        const paymentsByBill = new Map();
-        await Promise.all(bills.map(async (bill) => {
-            const payments = await loadPayments(bill._id);
-            paymentsByBill.set(String(bill._id), payments);
-        }));
+        const paymentsByBill = await loadPaymentsByBill(bills.map((bill) => bill._id));
 
         if (method && ["cash", "online", "card"].includes(method)) {
             bills = bills.filter((bill) => (paymentsByBill.get(String(bill._id)) || []).some((payment) => payment.method === method));
@@ -162,58 +161,24 @@ export const getBill = async (req, res) => {
     }
 };
 
-export const listBillDiscounts = async (req, res) => {
-    try {
-        const bill = await Bill.findOne({ _id: req.params.id, branchId: req.user.branchId });
-        if (!bill) return res.status(404).json({ message: "Bill not found" });
-        if (bill.status === "paid") return res.status(400).json({ message: "Paid bills cannot receive new discounts" });
-        if (!bill.payerUser) return res.status(200).json({ discounts: [] });
-
-        const today = weekdayName();
-        // a customer has one loyalty balance across all branches
-        const [discounts, loyalty] = await Promise.all([
-            Discount.find({ branchId: req.user.branchId, isActive: true }),
-            Loyalty.findOne({ user: bill.payerUser })
-        ]);
-
-        const eligible = [];
-
-        discounts.forEach((discount) => {
-            if (discount.type === "weekly" && !(discount.applicableDays || []).map((day) => day.toLowerCase()).includes(today)) return;
-            if (discount.type === "hourly" && !inHourWindow(discount.applicableHours)) return;
-            if (discount.type === "loyalty" && (loyalty?.points || 0) < (discount.minPoints || 0)) return;
-            eligible.push({
-                type: discount.type,
-                key: String(discount._id),
-                name: discount.name,
-                percent: discount.value
-            });
-        });
-
-        res.status(200).json({ discounts: eligible });
-    } catch (error) {
-        console.error("List bill discounts error:", error.message);
-        res.status(500).json({ message: "Server error" });
-    }
-};
 export const applyBillDiscount = async (req, res) => {
     try {
         const bill = await populateBill(Bill.findOne({ _id: req.params.id, branchId: req.user.branchId }));
         if (!bill) return res.status(404).json({ message: "Bill not found" });
         ensureBillReference(bill);
         if (bill.status === "paid") return res.status(400).json({ message: "Paid bills cannot be discounted" });
-        if (bill.loyaltyRedemption?.reward) return res.status(400).json({ message: "Manual discounts cannot be changed after a loyalty reward is redeemed" });
         const rawAmount = Number(req.body.amount);
         const amount = roundMoney(rawAmount);
         if (!Number.isFinite(rawAmount) || amount < 0) {
             return res.status(400).json({ message: "Enter a valid discount amount" });
         }
-        const maximum = roundMoney(Math.max(0, bill.originalAmount - bill.paidAmount));
+        // the manual discount sits on top of any loyalty discount already redeemed on this bill
+        const loyaltyAmount = loyaltyDiscountOf(bill);
+        const maximum = roundMoney(Math.max(0, bill.originalAmount - bill.paidAmount - loyaltyAmount));
         if (amount > maximum) {
             return res.status(400).json({ message: "Discount cannot exceed the unpaid bill amount" });
         }
-        bill.discountBreakdown = [];
-        bill.discountAmount = amount;
+        bill.discountAmount = roundMoney(amount + loyaltyAmount);
         syncBillTotals(bill);
         await bill.save();
 
@@ -293,40 +258,22 @@ export const redeemBillReward = async (req, res) => {
         ensureBillReference(bill);
         if (bill.status === "paid") return res.status(400).json({ message: "Paid bills cannot receive a loyalty reward" });
         if (!bill.payerUser) return res.status(400).json({ message: "Walk-in customers cannot redeem loyalty points" });
-        if (bill.loyaltyRedemption?.reward) return res.status(400).json({ message: "A loyalty reward has already been redeemed for this bill" });
-
-        const reward = req.body.reward;
-        const games = (bill.games || []).filter(Boolean);
-        const hasFrame = games.some((game) => game.type === "frame");
-        const hasCentury = games.some((game) => game.type === "century");
-        if (!["free_frame", "century_discount"].includes(reward)) {
-            return res.status(400).json({ message: "Choose a valid loyalty reward" });
-        }
-        if ((reward === "free_frame" && !hasFrame) || (reward === "century_discount" && !hasCentury)) {
-            return res.status(400).json({ message: "This reward is not available for the games on this bill" });
-        }
+        if (bill.loyaltyRedemption?.reward) return res.status(400).json({ message: "The loyalty discount has already been used for this bill" });
 
         const loyalty = await loadLoyalty(bill.payerUser);
         const availablePoints = loyalty?.points || 0;
-        if (availablePoints < REWARD_THRESHOLD) {
-            return res.status(400).json({ message: `At least ${REWARD_THRESHOLD} loyalty points are required` });
-        }
-
-        const points = reward === "free_frame" ? REWARD_THRESHOLD : Number(req.body.points);
-        if (!Number.isInteger(points) || points < REWARD_THRESHOLD || points > availablePoints) {
-            return res.status(400).json({ message: `Enter a whole number of points between ${REWARD_THRESHOLD} and your available balance` });
+        if (availablePoints <= REWARD_THRESHOLD) {
+            return res.status(400).json({ message: `More than ${REWARD_THRESHOLD} loyalty points are required` });
         }
 
         const existingDiscount = Number(bill.discountAmount || 0);
         const unpaidAmount = roundMoney(Math.max(0, bill.originalAmount - existingDiscount - bill.paidAmount));
-        const frameAmount = reward === "free_frame"
-            ? roundMoney(games.find((game) => game.type === "frame").finalAmount || games.find((game) => game.type === "frame").totalAmount || 0)
-            : roundMoney(points * POINT_VALUE);
-        if (!(frameAmount > 0) || frameAmount > unpaidAmount) {
-            return res.status(400).json({ message: "This reward cannot be applied to the remaining bill amount" });
-        }
+        if (!(unpaidAmount > 0)) return res.status(400).json({ message: "There is no remaining amount to discount" });
+        // spend only the points the bill needs; anything left over stays on the customer's balance
+        const points = Math.min(availablePoints, Math.ceil(unpaidAmount / POINT_VALUE));
+        const discountAmount = roundMoney(Math.min(points * POINT_VALUE, unpaidAmount));
 
-        const description = reward === "free_frame" ? `Free frame redeemed on bill ${bill.reference}` : `Century-game discount redeemed on bill ${bill.reference}`;
+        const description = `Loyalty discount redeemed on bill ${bill.reference}`;
         if (!await redeemPoints({ user: bill.payerUser, points, description })) {
             return res.status(400).json({ message: "You do not have enough loyalty points" });
         }
@@ -341,12 +288,11 @@ export const redeemBillReward = async (req, res) => {
             },
             {
                 $set: {
-                    loyaltyRedemption: { reward, points, amount: frameAmount, redeemedAt: new Date() },
-                    discountAmount: roundMoney(existingDiscount + frameAmount),
-                    discountBreakdown: []
+                    loyaltyRedemption: { reward: "loyalty_discount", points, amount: discountAmount, redeemedAt: new Date() },
+                    discountAmount: roundMoney(existingDiscount + discountAmount),
                 }
             },
-            { new: true }
+            { returnDocument: "after" }
         );
         if (!updated) {
             await restorePoints({ user: bill.payerUser, points, description: `Restored after duplicate reward attempt on bill ${bill.reference}` });
@@ -355,9 +301,11 @@ export const redeemBillReward = async (req, res) => {
 
         syncBillTotals(updated);
         await updated.save();
-        const payments = await loadPayments(updated._id);
-        const refreshedLoyalty = await loadLoyalty(updated.payerUser);
-        res.status(200).json({ bill: serializeBill(updated, payments, refreshedLoyalty) });
+        // reload with games and payer populated so the response matches every other bill response
+        const refreshed = await populateBill(Bill.findById(updated._id));
+        const payments = await loadPayments(refreshed._id);
+        const refreshedLoyalty = await loadLoyalty(refreshed.payerUser);
+        res.status(200).json({ bill: serializeBill(refreshed, payments, refreshedLoyalty) });
     } catch (error) {
         console.error("Redeem bill reward error:", error.message);
         res.status(500).json({ message: "Loyalty reward could not be redeemed" });
@@ -380,7 +328,8 @@ export const downloadBillReceipt = async (req, res) => {
             ...data.games.map((game) => `${game.playerName} · ${game.tableName} · ${game.type} · Rs. ${game.charge}`),
             "",
             `Original: Rs. ${data.originalAmount}`,
-            `Discount: Rs. ${data.discountAmount}`,
+            ...(data.manualDiscount ? [`Discount: Rs. ${data.manualDiscount}`] : []),
+            ...(data.loyaltyDiscount ? [`Loyalty discount: Rs. ${data.loyaltyDiscount}`] : []),
             `Payable: Rs. ${data.payableAmount}`,
             `Paid: Rs. ${data.paidAmount}`,
             `Balance: Rs. ${data.remainingBalance}`,

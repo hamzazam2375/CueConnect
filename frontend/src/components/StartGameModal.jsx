@@ -6,14 +6,28 @@ export const inputClass = "admin-filter-field w-full px-4 py-2.5 bg-white/[0.04]
 export const labelClass = "block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5";
 const emptyStart = { playerMode: "registered", playerUserId: "", playerName: "", tableId: "", type: "frame", frameType: "single" };
 
-export function ModalShell({ title, onClose, children }) {
+const MODAL_SIZES = { md: "max-w-lg", lg: "max-w-3xl" };
+
+export function ModalShell({ title, eyebrow, onClose, children, size = "md", actions = null }) {
+    useEffect(() => {
+        const onKey = (event) => { if (event.key === "Escape") onClose(); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
+
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}>
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/10 p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white">{title}</h2>
-                    <button type="button" onClick={onClose} className="text-neutral-500 hover:text-white p-1" aria-label="Close"><Icon name="x" className="h-5 w-5" /></button>
+            <div className={`relative w-full ${MODAL_SIZES[size] || MODAL_SIZES.md} max-h-[90vh] overflow-y-auto overflow-x-hidden bg-neutral-950 border border-white/[0.08] rounded-2xl shadow-2xl shadow-red-900/10 p-5 sm:p-8`}>
+                <div className="flex items-start justify-between gap-4 mb-6">
+                    <div className="min-w-0">
+                        {eyebrow && <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">{eyebrow}</p>}
+                        <h2 className={`font-bold text-white break-words ${eyebrow ? "mt-1 text-2xl font-black" : "text-xl"}`}>{title}</h2>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        {actions}
+                        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500 hover:text-white" aria-label="Close"><Icon name="x" className="h-4 w-4" /></button>
+                    </div>
                 </div>
                 {children}
             </div>
@@ -42,7 +56,7 @@ export function PersonFields({ customers, mode, onMode, userId, onUserId, name, 
                 <>
                     <div>
                         <label className={labelClass}>{label}</label>
-                        <select value={userId} onChange={(e) => onUserId(e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
+                        <select required value={userId} onChange={(e) => onUserId(e.target.value)} className={`${inputClass} appearance-none cursor-pointer`}>
                             <option value="" className="bg-neutral-900">Select customer</option>
                             {customers.map((customer) => (
                                 <option key={customer.id} value={customer.id} className="bg-neutral-900">{customer.name} · {customer.customerId}</option>
@@ -54,18 +68,23 @@ export function PersonFields({ customers, mode, onMode, userId, onUserId, name, 
             ) : (
                 <div>
                     <label className={labelClass}>{label} name</label>
-                    <input value={name} onChange={(e) => onName(e.target.value)} placeholder="Enter name" className={inputClass} />
+                    <input required value={name} onChange={(e) => onName(e.target.value)} placeholder="Enter name" className={inputClass} />
                 </div>
             )}
         </div>
     );
 }
 
-export default function StartGameModal({ open, onClose, onStarted, prefill = {} }) {
+// mounted only while open, so every opening starts from a fresh form built from the prefill
+export default function StartGameModal({ open, ...props }) {
+    return open ? <StartGameForm {...props} /> : null;
+}
+
+function StartGameForm({ onClose, onStarted, prefill = {} }) {
     const [tables, setTables] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [activeGames, setActiveGames] = useState([]);
-    const [form, setForm] = useState(emptyStart);
+    const [form, setForm] = useState(() => ({ ...emptyStart, ...prefill }));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
 
@@ -74,11 +93,7 @@ export default function StartGameModal({ open, onClose, onStarted, prefill = {} 
     const registeredCustomers = customers.filter((customer) => customer.isActive !== false);
 
     useEffect(() => {
-        if (!open) return undefined;
         let cancelled = false;
-        setForm({ ...emptyStart, ...prefill });
-        setError(null);
-
         Promise.all([
             api.get("/admin/tables"),
             api.get("/admin/customers"),
@@ -93,9 +108,7 @@ export default function StartGameModal({ open, onClose, onStarted, prefill = {} 
         });
 
         return () => { cancelled = true; };
-    }, [open]);
-
-    if (!open) return null;
+    }, []);
 
     const submit = async () => {
         setSaving(true);

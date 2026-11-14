@@ -31,16 +31,17 @@ export default function AdminSignupComplete() {
         return () => dispatch(clearError());
     }, [dispatch]);
 
-    // fetch branches when "join" is selected
-    useEffect(() => {
-        if (branchAction === "join") {
-            setLoadingBranches(true);
-            api.get("/auth/branches")
-                .then(({ data }) => setBranches(data.branches || []))
-                .catch(() => setBranches([]))
-                .finally(() => setLoadingBranches(false));
-        }
-    }, [branchAction]);
+    // load the branch list when the admin chooses to join an existing branch
+    const chooseJoin = () => {
+        setBranchAction("join");
+        setBranchName("");
+        if (branchAction === "join") return;
+        setLoadingBranches(true);
+        api.get("/auth/branches")
+            .then(({ data }) => setBranches(data.branches || []))
+            .catch(() => setBranches([]))
+            .finally(() => setLoadingBranches(false));
+    };
 
     const update = (field) => (e) =>
         setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -221,7 +222,7 @@ export default function AdminSignupComplete() {
                                 {/* join existing */}
                                 <button
                                     type="button"
-                                    onClick={() => { setBranchAction("join"); setBranchName(""); }}
+                                    onClick={chooseJoin}
                                     className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-300 cursor-pointer group ${
                                         branchAction === "join"
                                             ? "bg-red-600/10 border-red-500/40 shadow-lg shadow-red-900/10"

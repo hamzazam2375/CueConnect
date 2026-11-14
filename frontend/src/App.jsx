@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { fetchCurrentUser } from "./store/authSlice";
 import Home from "./pages/Home";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -36,6 +36,7 @@ const AdminCustomers = lazy(() => import("./pages/AdminCustomers"));
 const AdminFinance = lazy(() => import("./pages/AdminFinance"));
 const AdminSettings = lazy(() => import("./pages/AdminSettings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AdminShell = lazy(() => import("./components/AdminLayout").then((module) => ({ default: module.AdminShell })));
 const AdminBookingsEvents = lazy(() => import("./pages/AdminBookingsEvents"));
 
 export default function App() {
@@ -71,14 +72,17 @@ export default function App() {
                         </Route>
                     </Route>
                     <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                        <Route path="/admin/tables" element={<TableManagement />} />
-                        <Route path="/admin/games" element={<AdminGames />} />
-                        <Route path="/admin/billing" element={<AdminBilling />} />
-                        <Route path="/admin/customers" element={<AdminCustomers />} />
-                        <Route path="/admin/finance" element={<AdminFinance />} />
-                        <Route path="/admin/settings" element={<AdminSettings />} />
-                        <Route path="/admin/bookings" element={<AdminBookingsEvents />} />
+                        <Route element={<AdminShell />}>
+                            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                            <Route path="/admin/tables" element={<TableManagement />} />
+                            <Route path="/admin/games" element={<AdminGames />} />
+                            <Route path="/admin/billing" element={<AdminBilling />} />
+                            <Route path="/admin/bookings" element={<AdminBookingsEvents />} />
+                            <Route path="/admin/customers" element={<AdminCustomers />} />
+                            <Route path="/admin/finance" element={<AdminFinance />} />
+                            <Route path="/admin/settings" element={<AdminSettings />} />
+                        </Route>
                     </Route>
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route path="/admin/register" element={<AdminSignup />} />

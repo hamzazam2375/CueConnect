@@ -246,6 +246,16 @@ export const createExpense = async (req, res) => {
         if (!METHODS.includes(paymentMethod)) {
             return res.status(400).json({ message: "Payment method must be cash, online, or card" });
         }
+        // a plain YYYY-MM-DD is stored at local midday so it stays on that calendar day in every report
+        const expenseDate = !date
+            ? new Date()
+            : /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? new Date(`${date}T12:00:00`) : new Date(date);
+        if (Number.isNaN(expenseDate.getTime())) {
+            return res.status(400).json({ message: "Enter a valid expense date" });
+        }
+        if (expenseDate > new Date(Date.now() + 24 * 60 * 60 * 1000)) {
+            return res.status(400).json({ message: "Expense date cannot be in the future" });
+        }
 
         const expense = await Expense.create({
             branchId: req.user.branchId,
@@ -253,7 +263,7 @@ export const createExpense = async (req, res) => {
             category,
             amount: value,
             paymentMethod,
-            date: date ? new Date(date) : new Date(),
+            date: expenseDate,
             notes: notes ? String(notes).trim() : null,
             recordedBy: req.user._id
         });
@@ -264,6 +274,17 @@ export const createExpense = async (req, res) => {
         });
     } catch (error) {
         console.error("Create expense error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const deleteExpense = async (req, res) => {
+    try {
+        const expense = await Expense.findOneAndDelete({ _id: req.params.id, branchId: req.user.branchId });
+        if (!expense) return res.status(404).json({ message: "Expense not found" });
+        res.status(200).json({ message: "Expense deleted" });
+    } catch (error) {
+        console.error("Delete expense error:", error.message);
         res.status(500).json({ message: "Server error" });
     }
 };

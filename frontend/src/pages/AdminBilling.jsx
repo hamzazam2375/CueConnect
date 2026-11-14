@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout, { Icon } from "../components/AdminLayout";
+import { ModalShell } from "../components/StartGameModal";
 import api from "../services/api";
+import { apiError, formatDate, formatDateTime, formatMoney, saveBlob } from "../utils/adminFormat";
 
 const inputClass = "admin-filter-field w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30";
 const emptyFilters = { from: "", to: "", customerId: "", payer: "", status: "", method: "" };
@@ -11,9 +13,6 @@ const statusStyles = {
     paid: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
 };
 
-const formatMoney = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
-const formatDate = (value) => value ? new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
-const formatDateTime = (value) => value ? new Date(value).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
 function FilterSelect({ value, onChange, children }) {
     return (
@@ -52,34 +51,25 @@ export default function AdminBilling() {
     const [success, setSuccess] = useState(null);
     const [detail, setDetail] = useState(null);
     const [discountAmount, setDiscountAmount] = useState("");
-    const [rewardKey, setRewardKey] = useState("");
-    const [rewardPoints, setRewardPoints] = useState("200");
     const [payForm, setPayForm] = useState({ amount: "", method: "cash" });
     const [saving, setSaving] = useState(false);
 
-    const loadBills = async (nextFilters = filters) => {
-        const params = Object.fromEntries(Object.entries(nextFilters).filter(([, value]) => value));
-        const [{ data: billData }, { data: customerData }] = await Promise.all([
-            api.get("/admin/bills", { params }),
-            api.get("/admin/customers")
-        ]);
-        setBills(billData.bills || []);
-        setCustomers(customerData.customers || []);
-    };
+    // fetchers only return data; state is applied by the caller
+    const fetchBills = (nextFilters) => api.get("/admin/bills", {
+        params: Object.fromEntries(Object.entries(nextFilters).filter(([, value]) => value))
+    }).then(({ data }) => data.bills || []);
 
-    const refresh = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            await loadBills();
-        } catch {
-            setError("Bills could not be loaded.");
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loadBills = async (nextFilters = filters) => setBills(await fetchBills(nextFilters));
 
-    useEffect(() => { refresh(); }, []);
+    useEffect(() => {
+        Promise.all([api.get("/admin/customers"), fetchBills(emptyFilters)])
+            .then(([{ data: customerData }, initialBills]) => {
+                setCustomers(customerData.customers || []);
+                setBills(initialBills);
+            })
+            .catch(() => setError("Bills could not be loaded."))
+            .finally(() => setLoading(false));
+    }, []);
     useEffect(() => {
         if (!success) return undefined;
         const timer = setTimeout(() => setSuccess(null), 3000);
@@ -98,9 +88,7 @@ export default function AdminBilling() {
             const { data } = await api.get(`/admin/bills/${bill.id}`);
             setDetail(data.bill);
             setPayForm({ amount: data.bill.remainingBalance || "", method: "cash" });
-            setDiscountAmount(data.bill.discountAmount || "");
-            setRewardKey("");
-            setRewardPoints("200");
+            setDiscountAmount(data.bill.manualDiscount || "");
         } catch {
             setError("Bill details could not be loaded.");
         }
@@ -112,35 +100,33 @@ export default function AdminBilling() {
         setError(null);
         try {
             const { data } = await api.patch(`/admin/bills/${detail.id}/discount`, {
-                amount: Number(discountAmount)
+                amount: Number(discountAmount || 0)
             });
             setDetail(data.bill);
+            setDiscountAmount(data.bill.manualDiscount || "");
             setPayForm((form) => ({ ...form, amount: data.bill.remainingBalance }));
             await loadBills();
-            setSuccess("Discount applied");
+            setSuccess(data.bill.status === "paid" ? "Discount covers the bill · marked as paid" : "Discount saved");
         } catch (err) {
-            setError(err.response?.data?.message || "Discount could not be applied");
+            setError(apiError(err, "Discount could not be applied"));
         } finally {
             setSaving(false);
         }
     };
 
     const redeemReward = async () => {
-        if (!detail || !rewardKey) return;
+        if (!detail) return;
         setSaving(true);
         setError(null);
         try {
-            const { data } = await api.post(`/admin/bills/${detail.id}/loyalty-reward`, {
-                reward: rewardKey,
-                points: Number(rewardPoints)
-            });
+            const { data } = await api.post(`/admin/bills/${detail.id}/loyalty-reward`);
             setDetail(data.bill);
-            setDiscountAmount(data.bill.discountAmount || "");
+            setDiscountAmount(data.bill.manualDiscount || "");
             setPayForm((form) => ({ ...form, amount: data.bill.remainingBalance }));
             await loadBills();
-            setSuccess("Loyalty reward redeemed");
+            setSuccess(`Loyalty discount of ${formatMoney(data.bill.loyaltyDiscount)} applied (${data.bill.loyaltyRedemption?.points || 0} points)`);
         } catch (err) {
-            setError(err.response?.data?.message || "Loyalty reward could not be redeemed");
+            setError(apiError(err, "Loyalty reward could not be redeemed"));
         } finally {
             setSaving(false);
         }
@@ -160,44 +146,51 @@ export default function AdminBilling() {
             await loadBills();
             setSuccess(data.bill.status === "paid" ? "Bill marked as paid" : "Payment recorded");
         } catch (err) {
-            setError(err.response?.data?.message || "Payment could not be recorded");
+            setError(apiError(err, "Payment could not be recorded"));
         } finally {
             setSaving(false);
         }
     };
 
     const downloadReceipt = async (bill) => {
-        const { data } = await api.get(`/admin/bills/${bill.id}/receipt`, { responseType: "blob" });
-        const url = URL.createObjectURL(data);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${bill.reference}.pdf`;
-        link.click();
-        URL.revokeObjectURL(url);
+        setError(null);
+        try {
+            const { data } = await api.get(`/admin/bills/${bill.id}/receipt`, { responseType: "blob" });
+            saveBlob(data, `${bill.reference}.pdf`);
+        } catch {
+            setError("Receipt could not be downloaded.");
+        }
+    };
+
+    const applyFilters = async (event) => {
+        event.preventDefault();
+        setError(null);
+        try {
+            await loadBills();
+        } catch {
+            setError("Bills could not be filtered.");
+        }
+    };
+
+    const resetFilters = async () => {
+        setFilters(emptyFilters);
+        try {
+            await loadBills(emptyFilters);
+        } catch {
+            setError("Bills could not be loaded.");
+        }
     };
 
     return (
         <AdminLayout title="Billing">
             {detail && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDetail(null)} />
-                    <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-neutral-950 p-6 sm:p-8">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Bill details</p>
-                                <h2 className="mt-1 text-2xl font-black">{detail.reference}</h2>
-                                <p className="mt-1 text-sm text-neutral-500">{detail.payerName}{detail.customerId ? ` · ${detail.customerId}` : " · Walk-in"}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <StatusBadge status={detail.status} />
-                                <button type="button" onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500" aria-label="Close"><Icon name="x" className="h-4 w-4" /></button>
-                            </div>
-                        </div>
+                <ModalShell size="lg" eyebrow="Bill details" title={detail.reference} onClose={() => { setDetail(null); setError(null); }} actions={<StatusBadge status={detail.status} />}>
+                        <p className="-mt-4 text-sm text-neutral-500">{detail.payerName}{detail.customerId ? ` · ${detail.customerId}` : " · Walk-in"} · {formatDate(detail.billDate)}</p>
 
-                        <div className="mt-6 grid gap-3 sm:grid-cols-4">
+                        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <Summary label="Original" value={formatMoney(detail.originalAmount)} />
-                            <Summary label="Discount" value={formatMoney(detail.discountAmount)} />
-                            <Summary label="Payable" value={formatMoney(detail.payableAmount)} />
+                            <Summary label="Discount" value={formatMoney(detail.discountAmount)} hint={detail.loyaltyDiscount ? `incl. ${formatMoney(detail.loyaltyDiscount)} loyalty` : null} />
+                            <Summary label="Paid" value={formatMoney(detail.paidAmount)} />
                             <Summary label="Balance" value={formatMoney(detail.remainingBalance)} accent />
                         </div>
 
@@ -242,31 +235,27 @@ export default function AdminBilling() {
                         {detail.status !== "paid" && (
                             <div className="mt-8 grid gap-6 lg:grid-cols-2">
                                 <div className="rounded-2xl border border-white/[0.08] p-4">
-                                    <p className="text-sm font-bold">Manual discount</p>
-                                    <p className="mt-1 text-xs text-neutral-500">Admin-only concession. It is deducted directly from this bill.</p>
-                                    <input type="number" min="0" step="1" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} className={`${inputClass} mt-3`} placeholder="Discount amount" />
-                                    <button type="button" disabled={saving || detail.loyaltyRedemption} onClick={applyDiscount} className="mt-3 w-full rounded-xl bg-white/[0.06] py-2.5 text-sm font-bold hover:bg-white/[0.1] disabled:text-neutral-600">Save discount</button>
+                                    <label htmlFor="bill-discount" className="text-sm font-bold">Manual discount</label>
+                                    <p className="mt-1 text-xs text-neutral-500">Admin-only concession in Rs., deducted from this bill. Set it to 0 to remove it.</p>
+                                    <input id="bill-discount" type="number" min="0" step="any" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} className={`${inputClass} mt-3`} placeholder="Discount amount" />
+                                    <button type="button" disabled={saving} onClick={applyDiscount} className="mt-3 w-full rounded-xl bg-white/[0.06] py-2.5 text-sm font-bold hover:bg-white/[0.1] disabled:text-neutral-600">Save discount</button>
                                     {detail.payerUser && (
                                         <div className="mt-5 border-t border-white/[0.08] pt-4">
-                                            <p className="text-sm font-bold">Loyalty rewards</p>
-                                            <p className="mt-1 text-xs text-neutral-500">Available points: <span className="font-bold text-white">{detail.loyaltyPoints || 0}</span></p>
-                                            {detail.eligibleRewards?.length ? (
-                                                <>
-                                                    <select value={rewardKey} onChange={(e) => setRewardKey(e.target.value)} className={`${inputClass} mt-3 appearance-none`}>
-                                                        <option value="" className="bg-neutral-900">Choose a reward</option>
-                                                        {detail.eligibleRewards.map((reward) => <option key={reward.key} value={reward.key} className="bg-neutral-900">{reward.label} · {reward.points} points minimum</option>)}
-                                                    </select>
-                                                    {rewardKey === "century_discount" && <input type="number" min="200" step="1" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)} className={`${inputClass} mt-3`} placeholder="Points to redeem" />}
-                                                    <button type="button" disabled={!rewardKey || saving} onClick={redeemReward} className="mt-3 w-full rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:text-neutral-600">Redeem reward</button>
-                                                </>
-                                            ) : <p className="mt-2 text-xs text-neutral-600">Rewards become available at 200 points for the matching game type.</p>}
+                                            <p className="text-sm font-bold">Loyalty discount</p>
+                                            <p className="mt-1 text-xs text-neutral-500">Available points: <span className="font-bold text-white">{detail.loyaltyPoints || 0}</span> · 1 point = Rs. 1</p>
+                                            {detail.loyaltyRedemption ? (
+                                                <p className="mt-2 text-xs text-emerald-400">Applied: {formatMoney(detail.loyaltyRedemption.amount)} for {detail.loyaltyRedemption.points} points.</p>
+                                            ) : detail.loyaltyDiscountAvailable ? (
+                                                <button type="button" disabled={saving} onClick={redeemReward} className="mt-3 w-full rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 text-sm font-bold text-red-300 hover:bg-red-500/20 disabled:text-neutral-600">Apply loyalty discount</button>
+                                            ) : <p className="mt-2 text-xs text-neutral-600">Available once the customer has more than {detail.loyaltyThreshold || 200} points. Only the points needed for the balance are used.</p>}
                                         </div>
                                     )}
                                 </div>
                                 <div className="rounded-2xl border border-white/[0.08] p-4">
                                     <p className="text-sm font-bold">Record payment</p>
+                                    <p className="mt-1 text-xs text-neutral-500">Partial payments are allowed. Registered payers earn loyalty points on payments.</p>
                                     <div className="mt-3 grid grid-cols-2 gap-3">
-                                        <input type="number" min="0" step="1" value={payForm.amount} onChange={(e) => setPayForm((form) => ({ ...form, amount: e.target.value }))} className={inputClass} />
+                                        <input type="number" min="0" step="any" aria-label="Payment amount" value={payForm.amount} onChange={(e) => setPayForm((form) => ({ ...form, amount: e.target.value }))} className={inputClass} />
                                         <select value={payForm.method} onChange={(e) => setPayForm((form) => ({ ...form, method: e.target.value }))} className={`${inputClass} appearance-none`}>
                                             <option value="cash" className="bg-neutral-900">Cash</option>
                                             <option value="online" className="bg-neutral-900">Online</option>
@@ -283,8 +272,7 @@ export default function AdminBilling() {
                                 <Icon name="file" className="h-4 w-4" /> Download receipt
                             </button>
                         )}
-                    </div>
-                </div>
+                </ModalShell>
             )}
 
             {success && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">{success}</div>}
@@ -300,7 +288,7 @@ export default function AdminBilling() {
                 </div>
             </section>
 
-            <div className="mt-6 flex gap-2">
+            <div className="mt-6 flex flex-wrap gap-2">
                 {[
                     { id: "pending", label: "Pending" },
                     { id: "all", label: "All bills" },
@@ -312,7 +300,7 @@ export default function AdminBilling() {
                 ))}
             </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); loadBills(); }} className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
+            <form onSubmit={applyFilters} className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-8">
                 <input value={filters.payer} onChange={(e) => setFilters((f) => ({ ...f, payer: e.target.value }))} placeholder="Payer name" className={inputClass} />
                 <DateFilter label="Start date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
                 <DateFilter label="End date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
@@ -332,7 +320,10 @@ export default function AdminBilling() {
                     <option value="online" className="bg-neutral-900">Online</option>
                     <option value="card" className="bg-neutral-900">Card</option>
                 </FilterSelect>
-                <button type="submit" className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-500">Filter</button>
+                <div className="flex gap-2">
+                    <button type="submit" className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-500">Filter</button>
+                    <button type="button" onClick={resetFilters} className="rounded-xl border border-white/[0.08] px-3 py-2.5 text-sm font-semibold text-neutral-400 hover:text-white" aria-label="Clear filters"><Icon name="x" className="h-4 w-4" /></button>
+                </div>
             </form>
 
             {loading ? (
@@ -343,7 +334,7 @@ export default function AdminBilling() {
                     <p className="mt-1 text-sm text-neutral-600">Completed games create or join a pending bill for the payer.</p>
                 </section>
             ) : (
-                <section className="mt-6 overflow-hidden rounded-2xl border border-white/[0.07]">
+                <section className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.07]">
                     <table className="min-w-full text-left text-sm">
                         <thead className="bg-white/[0.03] text-[10px] uppercase tracking-wider text-neutral-500">
                             <tr>
@@ -386,11 +377,12 @@ export default function AdminBilling() {
     );
 }
 
-function Summary({ label, value, accent }) {
+function Summary({ label, value, accent, hint }) {
     return (
         <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3">
             <p className="text-[10px] uppercase tracking-wider text-neutral-600">{label}</p>
             <p className={`mt-1 text-lg font-black ${accent ? "text-red-400" : "text-white"}`}>{value}</p>
+            {hint && <p className="mt-0.5 text-[10px] text-neutral-500">{hint}</p>}
         </div>
     );
 }

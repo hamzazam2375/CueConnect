@@ -5,7 +5,7 @@ import User from "../models/user.js";
 import Branch from "../models/branch.js";
 import { sendOtpEmail } from "../services/emailService.js";
 import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOptions.js";
-import { passwordError } from "../utils/passwordPolicy.js";
+import { adminPasswordError, passwordError } from "../utils/passwordPolicy.js";
 import { confirmVerificationCode, findClientForVerification, normalizeEmail, resendWait, sendVerificationCode, RESEND_COOLDOWN_SECONDS } from "../services/emailVerification.js";
 import { allocateCustomerCode } from "../utils/customerCode.js";
 
@@ -87,16 +87,9 @@ export const verifyAdminKey = async (req, res) => {
         }
 
         // validate password strength
-        const pwErrors = [];
-        if (password.length < 8) pwErrors.push("at least 8 characters");
-        if (!/[A-Z]/.test(password)) pwErrors.push("one uppercase letter");
-        if (!/[a-z]/.test(password)) pwErrors.push("one lowercase letter");
-        if (!/\d/.test(password)) pwErrors.push("one digit");
-        if (!/[^A-Za-z0-9]/.test(password)) pwErrors.push("one special character");
-        if (pwErrors.length > 0) {
-            return res.status(400).json({
-                message: `Password must contain ${pwErrors.join(", ")}`
-            });
+        const weakAdminPassword = adminPasswordError(password);
+        if (weakAdminPassword) {
+            return res.status(400).json({ message: weakAdminPassword });
         }
 
         // verify secret key
@@ -484,8 +477,8 @@ export const adminLogin = async (req, res) => {
             return res.status(400).json({ message: "Email and password are required" });
         }
 
-        // find user and check if they're an admin
-        const user = await User.findOne({ email });
+        // find user and check if they're an admin (emails are stored lowercase)
+        const user = await User.findOne({ email: String(email).trim().toLowerCase() });
         if (!user || user.role !== "admin") {
             return res.status(401).json({ message: "Invalid email or password" });
         }

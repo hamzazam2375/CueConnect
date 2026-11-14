@@ -5,8 +5,8 @@ import BranchSection from "../components/BranchSection";
 import EventCard from "../components/EventCard";
 import FeatureCard from "../components/FeatureCard";
 import Footer from "../components/Footer";
-import branches from "../data/branches";
 import { fetchPublicEvents } from "../utils/clientEvents";
+import { fetchPublicBranches, shortBranchName } from "../utils/publicBranches";
 
 const features = [
     {
@@ -33,13 +33,22 @@ const features = [
 
 export default function Home() {
     const [events, setEvents] = useState(null);
+    const [branches, setBranches] = useState(null);
+    const [branchError, setBranchError] = useState(false);
 
     useEffect(() => {
         let active = true;
-        // the section shows its empty message if events can't be loaded
+        // the events section shows its empty message if events can't be loaded
         fetchPublicEvents()
             .then((data) => active && setEvents(data))
             .catch(() => active && setEvents([]));
+        fetchPublicBranches()
+            .then((data) => active && setBranches(data))
+            .catch(() => {
+                if (!active) return;
+                setBranches([]);
+                setBranchError(true);
+            });
         return () => { active = false; };
     }, []);
 
@@ -50,7 +59,7 @@ export default function Home() {
             <Hero />
 
             {/* branches */}
-            <BranchSection branches={branches} />
+            <BranchSection branches={branches} error={branchError} />
 
             {/* events */}
             <section id="events" className="py-20 px-4 bg-black">
@@ -64,12 +73,17 @@ export default function Home() {
                         </h2>
                     </div>
 
+                    {!events && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading events">
+                            {[0, 1, 2].map((item) => <div key={item} className="h-64 rounded-xl border border-white/10 bg-neutral-900 animate-pulse" />)}
+                        </div>
+                    )}
                     {events && !events.length && (
                         <p className="text-center text-gray-500">No upcoming events right now. New tournaments are announced here.</p>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {events?.map((event) => (
-                            <EventCard key={event.id} event={event} branchName={event.branchName.replace("GOODSHOT ", "")} />
+                            <EventCard key={event.id} event={event} branchName={shortBranchName(event.branchName)} />
                         ))}
                     </div>
                 </div>
@@ -113,7 +127,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <Footer branches={branches} />
+            <Footer branches={branches || []} />
         </div>
     );
 }
