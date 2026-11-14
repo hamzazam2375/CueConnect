@@ -152,10 +152,18 @@ export default function AdminLayout({ title, children }) {
                             </div>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <NotificationBell />
+                            <NotificationBell align="right" />
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
-                            <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                disabled={isLoading}
+                                className="flex h-10 min-w-10 items-center justify-center gap-2 rounded-xl border border-red-500/15 bg-red-500/10 px-2.5 text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
+                                aria-label="Sign out"
+                                title="Sign out"
+                            >
                                 <Icon name="logout" className="h-[18px] w-[18px]" />
+                                <span className="hidden text-xs font-semibold sm:inline">{isLoading ? "Signing out..." : "Sign out"}</span>
                             </button>
                         </div>
                     </div>
