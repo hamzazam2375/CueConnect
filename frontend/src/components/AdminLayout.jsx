@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import NotificationsProvider from "./NotificationsProvider";
@@ -91,6 +91,17 @@ export default function AdminLayout({ title, children }) {
     const initials = `${user?.firstName?.[0] || "A"}${user?.lastName?.[0] || ""}`.toUpperCase();
     const dateLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
     const activeKey = sidebarItems.find((item) => location.pathname.startsWith(item.href))?.key || "dashboard";
+    const mobileNavRef = useRef(null);
+
+    // each admin page mounts its own layout, so bring the active pill back into view
+    useEffect(() => {
+        const nav = mobileNavRef.current;
+        const active = nav?.querySelector('[aria-current="page"]');
+        if (!nav || !active) return;
+        const navBox = nav.getBoundingClientRect();
+        const activeBox = active.getBoundingClientRect();
+        nav.scrollLeft += activeBox.left - navBox.left - (navBox.width - activeBox.width) / 2;
+    }, [activeKey]);
 
     const handleLogout = async () => {
         try {
@@ -167,9 +178,9 @@ export default function AdminLayout({ title, children }) {
                             </button>
                         </div>
                     </div>
-                    <nav className="dashboard-mobile-nav flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden" aria-label="Mobile admin navigation">
+                    <nav ref={mobileNavRef} className="dashboard-mobile-nav flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden" aria-label="Mobile admin navigation">
                         {sidebarItems.map((item) => (
-                            <Link key={item.key} to={item.href} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${activeKey === item.key ? "bg-red-600 text-white" : "border border-white/[0.08] bg-white/[0.03] text-neutral-400"}`}>
+                            <Link key={item.key} to={item.href} aria-current={activeKey === item.key ? "page" : undefined} className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${activeKey === item.key ? "bg-red-600 text-white" : "border border-white/[0.08] bg-white/[0.03] text-neutral-400"}`}>
                                 {item.label}
                             </Link>
                         ))}
