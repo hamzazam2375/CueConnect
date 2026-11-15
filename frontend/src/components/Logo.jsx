@@ -9,7 +9,7 @@ export default function Logo({ className = "h-9", blend = true }) {
             width="526"
             height="80"
             decoding="async"
-            className={`block w-auto object-contain object-left select-none ${blend ? "mix-blend-screen" : ""} ${className}`}
+            className={`block w-auto max-w-full object-contain object-left select-none ${blend ? "mix-blend-screen" : ""} ${className}`}
         />
     );
 }

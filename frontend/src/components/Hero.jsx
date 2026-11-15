@@ -5,7 +5,7 @@ export default function Hero() {
     return (
         <section
             id="home"
-            className="relative min-h-screen flex items-center justify-center overflow-hidden pt-28 sm:pt-32"
+            className="relative min-h-screen flex items-center justify-center overflow-hidden pt-24 pb-16 sm:pt-32"
         >
             {/* background image */}
             <div
@@ -18,7 +18,7 @@ export default function Hero() {
 
             {/* content */}
             <div className="relative z-10 text-center px-4 max-w-3xl mx-auto">
-                <p className="text-white font-semibold tracking-[0.35em] text-sm sm:text-base mb-5 uppercase">
+                <p className="text-white font-semibold tracking-[0.35em] pl-[0.35em] text-sm sm:text-base mb-5 uppercase">
                     Welcome To
                 </p>
 
@@ -27,11 +27,11 @@ export default function Hero() {
                     className="h-11 sm:h-14 lg:h-16 mx-auto object-center contrast-125 brightness-110 drop-shadow-[0_4px_18px_rgba(0,0,0,0.85)]"
                 />
 
-                <p className="text-white font-extrabold tracking-[0.4em] text-base sm:text-xl lg:text-2xl mt-5 mb-8 uppercase">
+                <p className="text-white font-extrabold tracking-[0.4em] pl-[0.4em] text-base sm:text-xl lg:text-2xl mt-5 mb-8 uppercase">
                     Snooker Club
                 </p>
 
-                <p className="text-red-500 font-bold tracking-[0.3em] text-sm sm:text-base mb-4 uppercase">
+                <p className="text-red-500 font-bold tracking-[0.3em] pl-[0.3em] text-sm sm:text-base mb-4 uppercase">
                     Play With Passion
                 </p>
 

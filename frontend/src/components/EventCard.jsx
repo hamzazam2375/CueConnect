@@ -27,7 +27,7 @@ export default function EventCard({ event, branchName }) {
 
             <p className="text-sm text-red-400 font-medium mb-1">{branchName}</p>
 
-            <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400 mb-3">
                 <span>{formattedDate}</span>
                 <span>{formattedTime}</span>
             </div>
@@ -37,7 +37,7 @@ export default function EventCard({ event, branchName }) {
             </p>
 
             {/* prize & fee */}
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
                 {event.prize && (
                     <span className="text-yellow-400 font-semibold">🏅 {event.prize}</span>
                 )}

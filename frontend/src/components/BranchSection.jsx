@@ -61,8 +61,8 @@ function BranchDetail({ branch, onClose }) {
         <div className="bg-neutral-900 border border-white/10 rounded-xl p-6 sm:p-8 mt-4 animate-fade-in">
             {/* header */}
             <div className="flex items-start justify-between gap-4 mb-8">
-                <div>
-                    <h3 className="text-2xl font-bold text-white">{branch.name}</h3>
+                <div className="min-w-0">
+                    <h3 className="text-xl sm:text-2xl font-bold text-white break-words">{branch.name}</h3>
                     <p className="mt-1 text-sm text-gray-500">{formatOpeningHours(branch)}{branch.address ? ` · ${branch.address}` : ""}</p>
                 </div>
                 <button
@@ -87,7 +87,7 @@ function BranchDetail({ branch, onClose }) {
                         return (
                             <div
                                 key={table.id}
-                                className="flex items-center justify-between gap-3 bg-black/40 rounded-lg p-3 border border-white/5"
+                                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 bg-black/40 rounded-lg p-3 border border-white/5"
                             >
                                 <div className="min-w-0">
                                     <p className="text-white font-medium text-sm">{table.name}</p>
@@ -96,7 +96,7 @@ function BranchDetail({ branch, onClose }) {
                                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${status.className}`}>{status.label}</span>
                                     </div>
                                 </div>
-                                <div className="text-right">
+                                <div className="sm:text-right">
                                     <p className="text-white text-sm font-semibold">
                                         PKR {Number(table.pricePerHour).toLocaleString()}/hr
                                     </p>
