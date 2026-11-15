@@ -19,7 +19,7 @@ function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
     const c = colorMap[iconColor] || colorMap.red;
 
     return (
-        <article className="dashboard-rise dashboard-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-5" style={{ animationDelay: delay }}>
+        <article className="dashboard-rise dashboard-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4 sm:p-5" style={{ animationDelay: delay }}>
             <div className={`absolute -right-8 -top-8 h-24 w-24 rounded-full ${c.glow} blur-2xl transition-all duration-500`} />
             <div className="relative">
                 <div className="flex items-center justify-between">
@@ -27,8 +27,8 @@ function StatCard({ icon, label, value, subValue, delay, iconColor = "red" }) {
                         <Icon name={icon} className="h-5 w-5" />
                     </div>
                 </div>
-                <p className="mt-4 text-xs font-medium uppercase tracking-[0.16em] text-neutral-500">{label}</p>
-                <p className="mt-1 text-3xl font-black tracking-tight text-white">{value}</p>
+                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-500 sm:text-xs sm:tracking-[0.16em]">{label}</p>
+                <p className="mt-1 break-words text-2xl font-black tracking-tight text-white sm:text-3xl">{value}</p>
                 {subValue && <p className="mt-1 text-xs text-neutral-500">{subValue}</p>}
             </div>
         </article>
@@ -53,7 +53,7 @@ function OccupancyBar({ occupied, total }) {
     const textColor = pct >= 80 ? "text-red-400" : pct >= 50 ? "text-amber-400" : "text-emerald-400";
 
     return (
-        <article className="dashboard-rise dashboard-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-5" style={{ animationDelay: "380ms" }}>
+        <article className="dashboard-rise dashboard-card group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-4 sm:p-5" style={{ animationDelay: "380ms" }}>
             <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-blue-600/[0.07] blur-2xl transition-all duration-500 group-hover:bg-blue-600/15" />
             <div className="relative">
                 <div className="flex items-center justify-between">
@@ -62,7 +62,7 @@ function OccupancyBar({ occupied, total }) {
                     </div>
                     <span className={`text-2xl font-black ${textColor}`}>{pct}%</span>
                 </div>
-                <p className="mt-4 text-xs font-medium uppercase tracking-[0.16em] text-neutral-500">Table Occupancy</p>
+                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-500 sm:text-xs sm:tracking-[0.16em]">Table Occupancy</p>
                 <div className="mt-2 h-2 w-full rounded-full bg-white/[0.06]">
                     <div className={`h-full rounded-full ${barColor} transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
                 </div>
@@ -270,7 +270,7 @@ export default function AdminDashboard() {
 
                     {/* ── Quick Actions ── */}
                     <section className="mt-6 dashboard-rise" style={{ animationDelay: "300ms" }}>
-                        <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6">
+                        <article className="rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6">
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="rounded-xl border border-red-500/15 bg-red-500/10 p-2.5 text-red-500"><Icon name="zap" className="h-5 w-5" /></div>
                                 <div>
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
                     {/* ── Bottom Grid: Pending Actions + Activity Summary + Recent Activity ── */}
                     <section className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
                         {/* Pending Actions */}
-                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "440ms" }}>
+                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6" style={{ animationDelay: "440ms" }}>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="rounded-xl border border-amber-500/15 bg-amber-500/10 p-2.5 text-amber-500"><Icon name="alert" className="h-5 w-5" /></div>
                                 <div>
@@ -322,7 +322,7 @@ export default function AdminDashboard() {
                         </article>
 
                         {/* Activity Summary */}
-                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "480ms" }}>
+                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6" style={{ animationDelay: "480ms" }}>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/10 p-2.5 text-emerald-500"><Icon name="chart" className="h-5 w-5" /></div>
                                 <div>
@@ -331,32 +331,32 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
-                                    <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 sm:p-4">
+                                    <div className="flex min-w-0 items-center gap-3">
                                         <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400"><Icon name="calendar" className="h-4 w-4" /></div>
                                         <div><p className="text-sm font-semibold text-neutral-200">Today&apos;s Bookings</p><p className="text-xs text-neutral-500">Scheduled for today</p></div>
                                     </div>
-                                    <span className="text-2xl font-black text-white">{stats?.todayBookings ?? 0}</span>
+                                    <span className="shrink-0 text-right text-2xl font-black text-white">{stats?.todayBookings ?? 0}</span>
                                 </div>
-                                <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
-                                    <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 sm:p-4">
+                                    <div className="flex min-w-0 items-center gap-3">
                                         <div className="rounded-lg bg-violet-500/10 p-2 text-violet-400"><Icon name="gamepad" className="h-4 w-4" /></div>
                                         <div><p className="text-sm font-semibold text-neutral-200">Active Games</p><p className="text-xs text-neutral-500">Currently in progress</p></div>
                                     </div>
-                                    <span className="text-2xl font-black text-white">{stats?.activeGames ?? 0}</span>
+                                    <span className="shrink-0 text-right text-2xl font-black text-white">{stats?.activeGames ?? 0}</span>
                                 </div>
-                                <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] p-4">
-                                    <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 sm:p-4">
+                                    <div className="flex min-w-0 items-center gap-3">
                                         <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400"><Icon name="trophy" className="h-4 w-4" /></div>
                                         <div><p className="text-sm font-semibold text-neutral-200">Upcoming Events</p><p className="text-xs text-neutral-500">Tournaments & specials</p></div>
                                     </div>
-                                    <span className="text-2xl font-black text-white">{stats?.upcomingEvents ?? 0}<span className="ml-1 text-xs font-semibold text-neutral-500">({stats?.upcomingTournaments ?? 0} tournaments)</span></span>
+                                    <span className="shrink-0 text-right text-2xl font-black text-white">{stats?.upcomingEvents ?? 0}<span className="block text-xs font-semibold text-neutral-500 sm:ml-1 sm:inline">({stats?.upcomingTournaments ?? 0} tournaments)</span></span>
                                 </div>
                             </div>
                         </article>
 
                         {/* Recent Activity Feed */}
-                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6 lg:col-span-2 xl:col-span-1" style={{ animationDelay: "520ms" }}>
+                        <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6 lg:col-span-2 xl:col-span-1" style={{ animationDelay: "520ms" }}>
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="rounded-xl border border-blue-500/15 bg-blue-500/10 p-2.5 text-blue-500"><Icon name="activity" className="h-5 w-5" /></div>
                                 <div>
