@@ -123,7 +123,7 @@ export default function AdminLayout({ title, children }) {
                 </nav>
                 <div className="mt-auto">
                     <div className="mb-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-sm font-black shadow-lg shadow-red-950/50">{initials}</div>
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold">{user?.firstName} {user?.lastName}</p>
@@ -141,17 +141,17 @@ export default function AdminLayout({ title, children }) {
             <div className="relative lg:pl-[272px]">
                 <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
                     <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-7 lg:px-10">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                             <button type="button" onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-neutral-400 hover:text-white p-2 -ml-2" aria-label="Open menu">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                             </button>
-                            <Link to="/" className="lg:hidden" aria-label="Home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
+                            <Link to="/" className="min-w-0 lg:hidden" aria-label="Home"><Logo blend={false} className="h-5 sm:h-7 contrast-125 brightness-110" /></Link>
                             <div className="hidden lg:block">
                                 <p className="text-xs text-neutral-500">{dateLabel}</p>
                                 <p className="mt-0.5 text-sm font-semibold text-neutral-200">{title || "Admin Dashboard"}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
                             <NotificationBell align="right" />
                             <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
                             <button
