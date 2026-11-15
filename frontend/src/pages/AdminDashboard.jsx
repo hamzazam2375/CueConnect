@@ -302,7 +302,7 @@ export default function AdminDashboard() {
                     </section>
 
                     {/* ── Bottom Grid: Pending Actions + Activity Summary + Recent Activity ── */}
-                    <section className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+                    <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
                         {/* Pending Actions */}
                         <article className="dashboard-rise dashboard-card rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-5 sm:p-6" style={{ animationDelay: "440ms" }}>
                             <div className="flex items-center gap-3 mb-5">
