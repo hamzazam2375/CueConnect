@@ -158,7 +158,7 @@ function RegistrationsView() {
     return (
         <>
             {error && <p className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}
-            <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Your event registrations">
+            <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Your event registrations">
                 {registrations.map((registration, index) => {
                     const { event } = registration;
                     return (

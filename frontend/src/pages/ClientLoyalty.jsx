@@ -104,7 +104,7 @@ export default function ClientLoyalty() {
 
                 <section className="mt-8" aria-labelledby="earn-heading">
                     <h2 id="earn-heading" className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Ways to earn</h2>
-                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Step index={0} icon="cue" title={`${rules.pointsPerGame} points per game`} text="Every frame or century game you play at any Goodshot branch, added when the club ends the game." />
                         <Step index={1} icon="cash" title={`1 point per PKR ${rules.pkrPerPoint} paid`} text={`When you pay a bill at the club, you earn a point for every PKR ${rules.pkrPerPoint} paid. You get a notification each time.`} />
                     </div>
@@ -112,7 +112,7 @@ export default function ClientLoyalty() {
 
                 <section className="mt-6" aria-labelledby="use-heading">
                     <h2 id="use-heading" className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Ways to use</h2>
-                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <Step index={2} icon="calendar" title="On online bookings" text={`Each point is PKR ${rules.pointValue} off, for up to ${maxPercent}% of a booking total. If the booking is cancelled or rejected, the points come back.`} />
                         <Step index={3} icon="receipt" title="On your bill at the club" text={`Once you have more than ${rules.billThreshold.toLocaleString()} points, the staff can take them off what you owe, once per bill. Only the points needed are used.`} />
                     </div>

@@ -155,7 +155,7 @@ export default function ClientBooking() {
                 ) : !branches ? (
                     <LoadingPanel label="Loading branches" />
                 ) : branches.length ? (
-                    <section className="mt-8 grid gap-4 md:grid-cols-2" aria-label="Available branches">
+                    <section className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2" aria-label="Available branches">
                         {branches.map((branch, index) => (
                             <BranchCard key={branch.id} branch={branch} selected={selectedBranchId === branch.id} onSelect={selectBranch} delay={`${140 + index * 80}ms`} />
                         ))}

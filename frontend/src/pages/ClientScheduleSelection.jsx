@@ -236,7 +236,7 @@ export default function ClientScheduleSelection() {
                     </div>
                 </section>
 
-                <div className="mt-5 grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
+                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
                     <section className="dashboard-rise rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "180ms" }}>
                         <SectionTitle icon="clock" title="Game duration" text="Choose how long you want to play" />
                         <div className="mt-5 grid grid-cols-3 gap-2">{[1, 2, 3].map((value) => <button key={value} type="button" onClick={() => chooseDuration(value)} className={`rounded-xl border py-4 text-center ${duration === value ? "border-red-500 bg-red-500/10 text-red-400" : "border-white/[0.07] bg-white/[0.025] text-neutral-500"}`}><strong className="block text-xl">{value}</strong><span className="text-[9px] uppercase">{value === 1 ? "Hour" : "Hours"}</span></button>)}</div>

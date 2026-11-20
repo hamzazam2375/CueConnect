@@ -153,7 +153,7 @@ export default function ClientDashboard() {
                         <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} ${branches.length === 1 ? "branch" : "branches"}`} delay="260ms" />
                     </section>
 
-                    <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
+                    <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
                         <div className="space-y-6">
                             <article className="dashboard-rise dashboard-card relative min-h-[285px] overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950" style={{ animationDelay: "300ms" }}>
                                 <img src={tableImage} alt="Premium snooker table" className="absolute inset-0 h-full w-full object-cover opacity-45 transition-transform duration-1000 hover:scale-105" />
@@ -173,7 +173,7 @@ export default function ClientDashboard() {
                                 <div className="mb-4 flex items-center justify-between">
                                     <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Get started</p><h2 className="mt-1 text-xl font-bold">Quick actions</h2></div>
                                 </div>
-                                <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     {quickActions.map((action, index) => {
                                         const actionClass = "dashboard-rise dashboard-card group flex items-center gap-4 rounded-2xl border border-white/[0.07] bg-neutral-950/70 p-4 text-left";
                                         const content = <><span className={`quick-icon quick-icon-${action.accent}`}><Icon name={action.icon} /></span><span><span className="block text-sm font-bold text-neutral-100 transition-colors group-hover:text-white">{action.title}</span><span className="mt-1 block text-xs text-neutral-500">{action.description}</span></span><Icon name="arrow" className="ml-auto h-4 w-4 text-neutral-700 transition-all duration-300 group-hover:translate-x-1 group-hover:text-red-500" /></>;

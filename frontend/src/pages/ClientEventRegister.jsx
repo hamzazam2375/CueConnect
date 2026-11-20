@@ -71,9 +71,9 @@ export default function ClientEventRegister() {
             {existing ? <Notice title={event.registration.status === "confirmed" ? "You're registered" : "Registration sent"} text={event.registration.status === "confirmed" ? `Your spot is confirmed. Reference ${event.registration.reference}.` : `The club is verifying your payment. Reference ${event.registration.reference}.`} />
                 : !event.registrationOpen ? <Notice title={event.spotsLeft === 0 ? "This event is fully booked" : "Registration is closed"} text="Keep an eye on the events page for the next one." />
                     : (
-                        <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+                        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
                             <section className="dashboard-rise space-y-4" style={{ animationDelay: "120ms" }}>
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <Detail icon="pin" label="Branch" value={event.branchName.replace("GOODSHOT ", "")} />
                                     <Detail icon="calendar" label="Date" value={formatEventDate(event.date, { weekday: "long", month: "long", day: "numeric" })} />
                                     <Detail icon="clock" label="Starts" value={formatEventTime(event.date)} />

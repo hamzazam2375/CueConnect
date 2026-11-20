@@ -69,7 +69,7 @@ function DetailCard({ icon, label, title, detail, editTo }) {
         <article className="dashboard-card rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
             <div className="flex items-start gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name={icon} /></span>
-                <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">{label}</p><h2 className="mt-1 truncate text-base font-bold text-neutral-100">{title}</h2><p className="mt-1 text-xs leading-relaxed text-neutral-500">{detail}</p></div>
+                <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-600">{label}</p><h2 className="mt-1 break-words text-base font-bold text-neutral-100">{title}</h2><p className="mt-1 text-xs leading-relaxed text-neutral-500">{detail}</p></div>
                 <Link to={editTo} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/[0.07] text-neutral-600 transition-colors hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400" aria-label={`Edit ${label}`}><Icon name="edit" className="h-3.5 w-3.5" /></Link>
             </div>
         </article>
@@ -178,9 +178,9 @@ export default function ClientBookingReview() {
             <section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">New booking · Final step</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Review your booking.</h1><p className="mt-3 max-w-2xl text-sm text-neutral-500 sm:text-base">Check every detail, pay the advance, and send your table request.</p></section>
             <Progress />
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+            <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
                 <section className="dashboard-rise space-y-4" style={{ animationDelay: "130ms" }}>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <DetailCard icon="pin" label="Branch" title={branch.name.replace("GOODSHOT ", "")} detail={`Open ${formatOpeningHours(branch)}`} editTo="/client/book" />
                         <DetailCard icon="table" label="Table" title={`${table.name} · ${table.type}`} detail={`PKR ${table.pricePerHour}/hour · PKR ${table.frameRate}/frame`} editTo="/client/book/table" />
                         <DetailCard icon="calendar" label="Date" title={displayDate} detail="Booking date" editTo="/client/book/schedule" />

@@ -108,7 +108,7 @@ export default function ClientBookings() {
                 ) : !bookings ? (
                     <LoadingPanel label="Loading bookings" />
                 ) : bookings.length ? (
-                    <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Your bookings">{bookings.map((booking, index) => <BookingCard key={booking.reference} booking={booking} onView={setSelectedBooking} delay={`${120 + index * 55}ms`} />)}</section>
+                    <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Your bookings">{bookings.map((booking, index) => <BookingCard key={booking.reference} booking={booking} onView={setSelectedBooking} delay={`${120 + index * 55}ms`} />)}</section>
                 ) : (
                     <section className="dashboard-rise mt-8 rounded-3xl border border-dashed border-white/[0.1] bg-neutral-950/60 px-6 py-16 text-center" style={{ animationDelay: "120ms" }}><span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-red-500/10 text-red-400"><Icon name="ticket" className="h-7 w-7" /></span><h2 className="mt-5 text-xl font-black">No bookings yet</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-neutral-600">Your confirmed booking requests will appear here.</p><Link to="/client/book" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold hover:bg-red-500">Book your first table <Icon name="arrow" className="h-4 w-4" /></Link></section>
                 )}
@@ -203,7 +203,7 @@ function WaitlistView() {
     return (
         <>
             {error && <p className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400" role="alert">{error}</p>}
-            <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Your waitlist">
+            <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Your waitlist">
                 {entries.map((entry, index) => {
                     const style = waitlistStyles[entry.status] || waitlistStyles.waiting;
                     const active = entry.status === "waiting" || entry.status === "notified";
