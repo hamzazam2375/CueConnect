@@ -12,7 +12,8 @@ import { v2 as cloudinary } from "cloudinary";
 //   "<file name>"               → file in uploads/payment-proofs (local development, older records)
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const LOCAL_DIR = path.join(backendRoot, "uploads", "payment-proofs");
+// PROOF_UPLOAD_DIR lets the tests keep their files in a temporary folder
+const localDir = () => process.env.PROOF_UPLOAD_DIR || path.join(backendRoot, "uploads", "payment-proofs");
 const CLOUD_PREFIX = "cld:";
 const CLOUD_FOLDER = "cueconnect/payment-proofs";
 
@@ -54,9 +55,9 @@ export const saveProof = async (buffer, extension) => {
         const result = await uploadToCloudinary(buffer);
         return `${CLOUD_PREFIX}${result.public_id}.${result.format}`;
     }
-    await fs.promises.mkdir(LOCAL_DIR, { recursive: true });
+    await fs.promises.mkdir(localDir(), { recursive: true });
     const fileName = `${randomName()}${extension}`;
-    await fs.promises.writeFile(path.join(LOCAL_DIR, fileName), buffer);
+    await fs.promises.writeFile(path.join(localDir(), fileName), buffer);
     return fileName;
 };
 
@@ -75,7 +76,7 @@ export const deleteProof = async (key) => {
             const { publicId } = splitCloudKey(key);
             await cloudinary.uploader.destroy(publicId, { type: "authenticated", resource_type: "image", invalidate: true });
         } else {
-            await fs.promises.unlink(path.join(LOCAL_DIR, path.basename(key)));
+            await fs.promises.unlink(path.join(localDir(), path.basename(key)));
         }
     } catch (error) {
         if (error.code !== "ENOENT") console.error("Payment proof delete error:", error.message);
@@ -90,7 +91,7 @@ export const sendProof = async (res, key) => {
     };
 
     if (!key.startsWith(CLOUD_PREFIX)) {
-        return res.sendFile(path.basename(key), { root: LOCAL_DIR, headers: { "Cache-Control": "private, no-store" } }, (error) => {
+        return res.sendFile(path.basename(key), { root: localDir(), headers: { "Cache-Control": "private, no-store" } }, (error) => {
             if (error) notFound();
         });
     }

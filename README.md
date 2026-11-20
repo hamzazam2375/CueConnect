@@ -234,6 +234,17 @@ Then open `http://localhost:5173/admin/register`, enter the `ADMIN_SECRET_KEY`, 
 
 Useful scripts: `npm run lint` and `npm run build` in `frontend/`, and `npm start` in `backend/`.
 
+### Running the tests
+
+```bash
+cd backend
+npm test
+```
+
+The backend tests (`backend/test/`) call the real API endpoints against a temporary in-memory MongoDB, so they never touch your `.env` database, and email is faked so no real messages are sent. They cover sign up, email verification, sign in, forgot password, bookings (pricing, overlaps, schedule limits, payment proofs, cancel, reschedule, change table), the waitlist, loyalty points (earning, booking and bill discounts), and event registration.
+
+They need Node.js 22+. The first run downloads a MongoDB binary (about 600 MB) into `node_modules/.cache`; later runs reuse it.
+
 ---
 
 # Tech Stack
