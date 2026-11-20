@@ -8,6 +8,7 @@ import { authCookieOptions, clearAuthCookieOptions } from "../utils/cookieOption
 import { adminPasswordError, passwordError } from "../utils/passwordPolicy.js";
 import { confirmVerificationCode, findClientForVerification, normalizeEmail, resendWait, sendVerificationCode, RESEND_COOLDOWN_SECONDS } from "../services/emailVerification.js";
 import { allocateCustomerCode } from "../utils/customerCode.js";
+import { findUserForReset, resetPasswordWithCode, resetWait, sendResetCode, RESET_COOLDOWN_SECONDS } from "../services/passwordReset.js";
 
 // track failed secret key attempts per IP
 const attemptTracker = new Map();
@@ -597,4 +598,66 @@ export const getMe = async (req, res) => {
     res.status(200).json({
         user: serializeAuthUser(req.user)
     });
+};
+
+const RESET_ROLES = ["client", "admin"];
+
+// step 1 of forgot password: emails a reset code. The reply is the same whether or not
+// the email has an account, so this can't be used to find out who is registered.
+export const requestPasswordReset = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email);
+        const role = RESET_ROLES.includes(req.body.role) ? req.body.role : "client";
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+
+        const user = await findUserForReset(email, role);
+        if (user) {
+            const wait = resetWait(user);
+            if (wait > 0) {
+                return res.status(429).json({ message: `Please wait ${wait} seconds before requesting another code`, resendIn: wait });
+            }
+            if (!await sendResetCode(user)) {
+                return res.status(502).json({ message: "The reset email could not be sent. Please try again" });
+            }
+        }
+
+        res.status(200).json({
+            message: `If an account exists for ${email}, we sent it a 6-digit reset code`,
+            email,
+            resendIn: RESET_COOLDOWN_SECONDS
+        });
+    } catch (error) {
+        console.error("Request password reset error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
+// step 2 of forgot password: the emailed code plus the new password
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        const role = RESET_ROLES.includes(req.body.role) ? req.body.role : "client";
+        if (!email || !code || !newPassword) {
+            return res.status(400).json({ message: "Email, code and new password are required" });
+        }
+
+        const weakPassword = role === "admin" ? adminPasswordError(newPassword) : passwordError(newPassword);
+        if (weakPassword) {
+            return res.status(400).json({ message: weakPassword });
+        }
+
+        const result = await resetPasswordWithCode({ email, role, code, newPassword });
+        if (result.error) {
+            return res.status(result.status).json({ message: result.error });
+        }
+
+        // this browser may hold a session from before the reset; it no longer works, so drop it
+        res.clearCookie("token", clearAuthCookieOptions);
+        res.status(200).json({ message: "Password reset. Sign in with your new password" });
+    } catch (error) {
+        console.error("Reset password error:", error.message);
+        res.status(500).json({ message: "Server error" });
+    }
 };

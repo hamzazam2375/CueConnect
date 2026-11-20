@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { adminLogin, clearError } from "../store/authSlice";
 import Logo from "../components/Logo";
@@ -11,6 +11,7 @@ export default function AdminLogin() {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
     const { isLoading, error, user } = useSelector((state) => state.auth);
 
     // redirect on successful login
@@ -81,6 +82,11 @@ export default function AdminLogin() {
                                 {error}
                             </div>
                         )}
+                        {location.state?.notice && !error && (
+                            <div className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm text-center" role="status">
+                                {location.state.notice}
+                            </div>
+                        )}
                         {/* email */}
                         <div>
                             <label htmlFor="admin-email" className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
@@ -145,6 +151,10 @@ export default function AdminLogin() {
                         </div>
 
                         {/* submit */}
+                        <div className="-mt-1 text-right">
+                            <Link to="/admin/forgot-password" className="text-xs font-semibold text-gray-400 hover:text-red-400 transition-colors">Forgot password?</Link>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={isLoading}

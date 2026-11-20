@@ -31,6 +31,7 @@ CueConnect provides a centralized platform for managing the daily operations of 
 ### Client Features
 
 - Create an account and log in
+- Reset a forgotten password with a 6-digit code sent by email (`/forgot-password`)
 - View available tables
 - Check table schedules
 - Book available tables
@@ -55,6 +56,7 @@ The admin panel lives under `/admin/*` in the frontend and `/api/admin/*` in the
 - **Sign up** (`/admin/register`): email + password + the server's `ADMIN_SECRET_KEY`, then a 6-digit email OTP (sent via Resend). Repeated wrong secret keys are rate-limited per IP.
 - **Complete sign-up** (`/admin/register/complete`): first and last name, then either **create a new branch** (a unique branch code is generated) or **join an existing branch**.
 - **Sign in** (`/admin/login`): email (case-insensitive) and password.
+- **Forgot password** (`/admin/forgot-password`): a 6-digit code is emailed (valid 10 minutes, 5 tries, one new code per minute); the new password must meet the admin rules. A reset signs out every existing session for that account.
 - **Password rules for admins**: at least 8 characters, with an uppercase letter, a lowercase letter, a digit, and a special character. The same rules apply when changing the password in Settings.
 - Visiting `/admin` redirects to the dashboard. Real-time notifications (Socket.IO) stay connected while moving between admin pages.
 

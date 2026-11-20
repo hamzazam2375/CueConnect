@@ -80,6 +80,11 @@ export default function ClientLogin() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {location.state?.notice && !error && (
+                            <div className="px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm text-center" role="status">
+                                {location.state.notice}
+                            </div>
+                        )}
                         {error && (
                             <div className="px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center" role="alert">
                                 {error}
@@ -143,6 +148,10 @@ export default function ClientLogin() {
                                     )}
                                 </button>
                             </div>
+                        </div>
+
+                        <div className="-mt-1 text-right">
+                            <Link to="/forgot-password" className="text-xs font-semibold text-gray-400 hover:text-red-400 transition-colors">Forgot password?</Link>
                         </div>
 
                         <button

@@ -52,6 +52,15 @@ const userSchema = new mongoose.Schema(
         emailCodeAttempts: { type: Number, select: false },
         emailCodeSentAt: { type: Date, select: false },
 
+        // the current password reset code (hashed) and its limits; never sent to clients
+        resetCodeHash: { type: String, select: false },
+        resetCodeExpiresAt: { type: Date, select: false },
+        resetCodeAttempts: { type: Number, select: false },
+        resetCodeSentAt: { type: Date, select: false },
+
+        // set when the password is reset; sessions signed in before this stop working
+        passwordChangedAt: { type: Date, default: null },
+
         customerCode: {
             type: String,
             unique: true,

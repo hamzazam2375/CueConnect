@@ -17,6 +17,11 @@ export const protect = async (req, res, next) => {
             return res.status(401).json({ message: "User no longer exists" });
         }
 
+        // a password reset signs out every session that started before it
+        if (user.passwordChangedAt && decoded.iat * 1000 < user.passwordChangedAt.getTime() - 1000) {
+            return res.status(401).json({ message: "Your password was changed. Please sign in again" });
+        }
+
         // req.user now has: _id, role, branchId, firstName, lastName, email
         req.user = user;
         next();

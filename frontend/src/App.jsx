@@ -15,6 +15,7 @@ const AdminSignup = lazy(() => import("./pages/AdminSignup"));
 const AdminSignupComplete = lazy(() => import("./pages/AdminSignupComplete"));
 const ClientLogin = lazy(() => import("./pages/ClientLogin"));
 const ClientSignup = lazy(() => import("./pages/ClientSignup"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ClientDashboard = lazy(() => import("./pages/ClientDashboard"));
 const ClientBooking = lazy(() => import("./pages/ClientBooking"));
 const ClientTableSelection = lazy(() => import("./pages/ClientTableSelection"));
@@ -54,6 +55,7 @@ export default function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<ClientLogin />} />
                     <Route path="/register" element={<ClientSignup />} />
+                    <Route path="/forgot-password" element={<ForgotPassword role="client" />} />
                     <Route element={<ProtectedRoute allowedRoles={["client"]} />}>
                         <Route element={<ClientLayout />}>
                             <Route path="/client/dashboard" element={<ClientDashboard />} />
@@ -85,6 +87,7 @@ export default function App() {
                         </Route>
                     </Route>
                     <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route path="/admin/forgot-password" element={<ForgotPassword role="admin" />} />
                     <Route path="/admin/register" element={<AdminSignup />} />
                     <Route path="/admin/register/complete" element={<AdminSignupComplete />} />
                     <Route path="*" element={<NotFound />} />

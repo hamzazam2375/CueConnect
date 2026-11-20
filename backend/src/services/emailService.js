@@ -9,14 +9,16 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * @param {object} [copy] – wording; defaults to the admin registration email
  */
 export const sendOtpEmail = async (to, otp, {
+    subject = "Your CueConnect Verification Code",
     subtitle = "Admin Email Verification",
     intro = "Use the verification code below to complete your admin registration.",
+    footnote = "If you didn't request this code, you can safely ignore this email. Do not share this code with anyone.",
     expiresInMinutes = 5
 } = {}) => {
     const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL,
         to,
-        subject: "Your CueConnect Verification Code",
+        subject,
         html: `
 <!DOCTYPE html>
 <html>
@@ -47,7 +49,7 @@ export const sendOtpEmail = async (to, otp, {
                 <span style="font-size:36px;font-weight:800;letter-spacing:12px;color:#ef4444;font-family:'Courier New',monospace;">${otp}</span>
               </div>
               <p style="margin:0;font-size:13px;color:#666;line-height:1.5;">
-                If you didn't request this code, you can safely ignore this email. Do not share this code with anyone.
+                ${footnote}
               </p>
             </td>
           </tr>
