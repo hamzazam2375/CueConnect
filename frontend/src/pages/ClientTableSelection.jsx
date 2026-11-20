@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import Logo from "../components/Logo";
-import SidebarToggle from "../components/SidebarToggle";
-import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import { fetchBranchTables, getApiError } from "../utils/clientBookings";
 
@@ -100,7 +96,6 @@ function TableCard({ table, index, selected, onSelect }) {
 }
 
 export default function ClientTableSelection() {
-    const { user } = useSelector((state) => state.auth);
     const navigate = useNavigate();
     const branchId = sessionStorage.getItem(BOOKING_BRANCH_KEY);
     const [selectedTableId, setSelectedTableId] = useState(() => sessionStorage.getItem(BOOKING_TABLE_KEY));
@@ -158,21 +153,7 @@ export default function ClientTableSelection() {
     };
 
     return (
-        <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
-            <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-                <div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" />
-                <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" />
-            </div>
-
-            <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
-                <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7">
-                    <div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div>
-                    <div className="flex items-center gap-3">
-                        <div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div>
-                        <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{`${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase()}</div>
-                    </div>
-                </div>
-            </header>
+        <>
 
             <main className="relative z-10 mx-auto max-w-6xl px-4 py-7 sm:px-7 sm:py-10">
                 <Link to="/client/book" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 transition-colors hover:text-white">
@@ -230,6 +211,6 @@ export default function ClientTableSelection() {
                 <p className="mt-6 text-center text-[11px] text-neutral-700">Click the selected table again to clear it. Occupied and maintenance tables cannot be selected.</p>
                 </>}
             </main>
-        </div>
+        </>
     );
 }

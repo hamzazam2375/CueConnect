@@ -5,6 +5,8 @@ import Logo from "./Logo";
 import { SidebarContext } from "./sidebarContext";
 import NotificationsProvider from "./NotificationsProvider";
 import PageLoader from "./PageLoader";
+import SidebarToggle from "./SidebarToggle";
+import NotificationBell from "./NotificationBell";
 import { logout } from "../store/authSlice";
 
 // `match` is the path prefix that keeps an item highlighted on its sub-pages
@@ -96,9 +98,34 @@ export default function ClientLayout() {
     return (
         <SidebarContext.Provider value={{ isOpen, openSidebar: () => setIsOpen(true) }}>
             <NotificationsProvider>
-                <Suspense fallback={<PageLoader />}>
-                    <Outlet />
-                </Suspense>
+                <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
+                    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+                        <div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" />
+                        <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" />
+                    </div>
+
+                    <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
+                        {/* the dashboard is wider than the other pages, so its header lines up with it */}
+                        <div className={`mx-auto flex h-20 items-center justify-between gap-3 px-4 sm:px-7 ${pathname === "/client/dashboard" ? "max-w-[1500px] lg:px-10" : "max-w-6xl"}`}>
+                            <div className="flex items-center gap-3">
+                                <SidebarToggle />
+                                <NotificationBell />
+                                <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link>
+                            </div>
+                            <Link to="/client/profile" className="group flex shrink-0 items-center gap-3" aria-label="Your profile">
+                                <div className="hidden text-right sm:block">
+                                    <p className="text-xs font-semibold text-neutral-300 transition-colors group-hover:text-white">{user.firstName} {user.lastName}</p>
+                                    <p className="text-[10px] text-neutral-600">Client account</p>
+                                </div>
+                                <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black transition-transform group-hover:scale-105">{initials}</div>
+                            </Link>
+                        </div>
+                    </header>
+
+                    <Suspense fallback={<PageLoader />}>
+                        <Outlet />
+                    </Suspense>
+                </div>
             </NotificationsProvider>
 
             <div

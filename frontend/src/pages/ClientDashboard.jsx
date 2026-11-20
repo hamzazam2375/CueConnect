@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
-import Logo from "../components/Logo";
-import SidebarToggle from "../components/SidebarToggle";
-import NotificationBell from "../components/NotificationBell";
-import { logout } from "../store/authSlice";
+import { useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import tableImage from "../../assets/table.webp";
 import { fetchBookingBranches, fetchClientBookings } from "../utils/clientBookings";
 import { PKR_PER_POINT_EARNED, POINTS_PER_GAME, fetchClientLoyalty } from "../utils/loyalty";
@@ -60,9 +56,7 @@ function StatCard({ icon, label, value, detail, delay }) {
 }
 
 export default function ClientDashboard() {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const { user, isLoading, error } = useSelector((state) => state.auth);
+    const { user, error } = useSelector((state) => state.auth);
     const [bookings, setBookings] = useState([]);
     const [points, setPoints] = useState(0);
     const [events, setEvents] = useState(null);
@@ -71,7 +65,6 @@ export default function ClientDashboard() {
     const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
     const now = new Date();
     const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
-    const dateLabel = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
     useEffect(() => {
         let active = true;
@@ -93,42 +86,8 @@ export default function ClientDashboard() {
         return () => { active = false; };
     }, []);
 
-    const handleLogout = async () => {
-        try {
-            await dispatch(logout()).unwrap();
-            navigate("/login", { replace: true });
-        } catch {
-            // Redux displays the API error in the dashboard.
-        }
-    };
-
     return (
-        <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
-            <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-                <div className="absolute left-[16%] top-[-12rem] h-[30rem] w-[30rem] rounded-full bg-red-700/[0.08] blur-[130px]" />
-                <div className="absolute bottom-[-16rem] right-[-8rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" />
-            </div>
-
-            <div className="relative">
-                <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050505]/80 backdrop-blur-xl">
-                    <div className="mx-auto flex h-20 max-w-[1500px] items-center justify-between px-4 sm:px-7 lg:px-10">
-                        <div className="flex items-center gap-3">
-                            <SidebarToggle /><NotificationBell />
-                            <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110" /></Link>
-                            <div className="ml-3 hidden border-l border-white/[0.08] pl-5 lg:block">
-                                <p className="text-xs text-neutral-500">{dateLabel}</p>
-                                <p className="mt-0.5 text-sm font-semibold text-neutral-200">Client dashboard</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                            <Link to="/" className="hidden rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white sm:block">Back to website</Link>
-                            <Link to="/client/profile" className="grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-400 transition-all hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400" aria-label="Profile settings"><Icon name="user" className="h-[18px] w-[18px]" /></Link>
-                            <button type="button" onClick={handleLogout} disabled={isLoading} className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/15 bg-red-500/10 text-red-400 transition-colors hover:bg-red-500/20 lg:hidden" aria-label="Sign out">
-                                <Icon name="logout" className="h-[18px] w-[18px]" />
-                            </button>
-                        </div>
-                    </div>
-                </header>
+        <>
 
                 <main className="mx-auto max-w-[1500px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10">
                     {error && <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400" role="alert">{error}</div>}
@@ -205,7 +164,7 @@ export default function ClientDashboard() {
 
                     <footer className="mt-10 flex flex-col gap-2 border-t border-white/[0.06] py-6 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between"><p>Goodshot Snooker Club · CueConnect</p><p className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Account protected with a secure session</p></footer>
                 </main>
-            </div>
-        </div>
+            
+        </>
     );
 }

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import PaymentProofForm from "../components/PaymentProofForm";
@@ -17,7 +16,6 @@ function Notice({ title, text }) {
 }
 
 export default function ClientEventRegister() {
-    const { user } = useSelector((state) => state.auth);
     const { eventId } = useParams();
     const [event, setEvent] = useState(null);
     const [loadError, setLoadError] = useState("");
@@ -40,9 +38,9 @@ export default function ClientEventRegister() {
 
     const back = <Link to="/client/events" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> All events</Link>;
 
-    if (registration) return <EventsShell user={user}><RegistrationSuccess registration={registration} /></EventsShell>;
-    if (loadError) return <EventsShell user={user}>{back}<ErrorPanel message={loadError} onRetry={() => { setLoadError(""); setReloadCount((count) => count + 1); }} /></EventsShell>;
-    if (!event) return <EventsShell user={user}><LoadingPanel label="Loading event" /></EventsShell>;
+    if (registration) return <EventsShell><RegistrationSuccess registration={registration} /></EventsShell>;
+    if (loadError) return <EventsShell>{back}<ErrorPanel message={loadError} onRetry={() => { setLoadError(""); setReloadCount((count) => count + 1); }} /></EventsShell>;
+    if (!event) return <EventsShell><LoadingPanel label="Loading event" /></EventsShell>;
 
     const price = event.registrationFee;
     const paid = price > 0;
@@ -64,7 +62,7 @@ export default function ClientEventRegister() {
     };
 
     return (
-        <EventsShell user={user}>
+        <EventsShell>
             {back}
             <section className="dashboard-rise mt-7"><TypeBadge type={event.type} /><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-4xl">{event.title}</h1>{event.description && <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-500 sm:text-base">{event.description}</p>}</section>
 

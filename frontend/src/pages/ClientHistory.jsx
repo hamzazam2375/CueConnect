@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
 import { Link, useSearchParams } from "react-router-dom";
-import Logo from "../components/Logo";
-import SidebarToggle from "../components/SidebarToggle";
-import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import { getApiError } from "../utils/clientBookings";
 import { fetchClientHistory } from "../utils/clientHistory";
@@ -101,13 +97,11 @@ function PaymentsList({ payments }) {
 }
 
 export default function ClientHistory() {
-    const { user } = useSelector((state) => state.auth);
     const [searchParams, setSearchParams] = useSearchParams();
     const tab = tabs.some(([value]) => value === searchParams.get("tab")) ? searchParams.get("tab") : "activity";
     const [history, setHistory] = useState(null);
     const [loadError, setLoadError] = useState("");
     const [reloadCount, setReloadCount] = useState(0);
-    const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
 
     useEffect(() => {
         let active = true;
@@ -142,5 +136,5 @@ export default function ClientHistory() {
         );
     }
 
-    return <div className="dashboard-shell min-h-screen bg-[#050505] text-white"><div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true"><div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" /></div><header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-7"><div className="flex items-center gap-3"><SidebarToggle /><NotificationBell /><Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link></div><div className="flex items-center gap-3"><div className="hidden text-right sm:block"><p className="text-xs font-semibold text-neutral-300">{user.firstName} {user.lastName}</p><p className="text-[10px] text-neutral-600">Client account</p></div><Link to="/client/profile" className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-red-500 to-red-800 text-xs font-black">{initials}</Link></div></div></header><main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12"><Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link><section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your record</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My history.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Every booking, game, payment, event, and point in one place.</p></section>{content}</main></div>;
+    return <><main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-7 sm:py-12"><Link to="/client/dashboard" className="group inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-white"><Icon name="back" className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to dashboard</Link><section className="dashboard-rise mt-7"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-red-500">Your record</p><h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">My history.</h1><p className="mt-3 text-sm text-neutral-500 sm:text-base">Every booking, game, payment, event, and point in one place.</p></section>{content}</main></>;
 }
