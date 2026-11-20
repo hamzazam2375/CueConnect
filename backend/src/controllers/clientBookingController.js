@@ -9,6 +9,7 @@ import { POINT_VALUE, maxRedeemablePoints, redeemPoints, restorePoints } from ".
 import { discardUpload } from "../middleware/upload.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 import { formatBranchName } from "../utils/branchName.js";
+import { clubTodayKey, slotHasStarted as slotStartsBeforeNow } from "../utils/clubTime.js";
 
 export const MAX_BOOKING_DAYS = 30;
 const ALLOWED_DURATIONS = [1, 2, 3];
@@ -38,7 +39,8 @@ const toUtcDate = (dateKey) => {
     return Number.isNaN(date.getTime()) || toDateKey(date) !== dateKey ? null : date;
 };
 
-const todayKey = () => toDateKey(new Date());
+// "today" and "has it started" follow the club's clock, not the server's UTC clock
+const todayKey = () => clubTodayKey();
 
 const addDays = (dateKey, days) => {
     const date = toUtcDate(dateKey);
@@ -46,10 +48,7 @@ const addDays = (dateKey, days) => {
     return toDateKey(date);
 };
 
-const slotHasStarted = (dateKey, startTime) => {
-    const date = toUtcDate(dateKey);
-    return new Date(date.getTime() + startTime * 60 * 1000) <= new Date();
-};
+const slotHasStarted = (dateKey, startTime) => slotStartsBeforeNow(dateKey, startTime);
 
 const hoursFrom = (branch) => {
     const openingTime = Number(branch?.openingTime);

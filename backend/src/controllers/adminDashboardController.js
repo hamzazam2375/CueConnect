@@ -9,17 +9,15 @@ import Bill from "../models/bill.js";
 import TournamentReg from "../models/tournamentReg.js";
 import { rangeBounds } from "../utils/dateRange.js";
 import { collectedIncomeMatch } from "../utils/recordIncome.js";
+import { clubToday } from "../utils/clubTime.js";
 
 const sum = async (Model, match) => {
     const [row] = await Model.aggregate([{ $match: match }, { $group: { _id: null, total: { $sum: "$amount" } } }]);
     return row?.total || 0;
 };
 
-// bookings store their calendar day as midnight UTC, so look up the local calendar day in that form
-const todayBookingDate = () => {
-    const now = new Date();
-    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-};
+// bookings store their calendar day as midnight UTC, so look up the club's calendar day in that form
+const todayBookingDate = () => clubToday();
 
 const recentActivity = async (branchId) => {
     const [bookings, games, incomes] = await Promise.all([

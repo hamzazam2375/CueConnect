@@ -2,14 +2,13 @@ import Table from "../models/table.js";
 import Game from "../models/game.js";
 import Booking from "../models/booking.js";
 import Waitlist from "../models/waitlist.js";
+import { clubToday } from "../utils/clubTime.js";
 
 const TABLE_TYPES = ["snooker", "billiard"];
 const TABLE_STATUSES = ["available", "occupied", "maintenance"];
 
-const todayUtc = () => {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-};
+// today on the club's calendar, in the midnight-UTC form bookings store
+const todayUtc = () => clubToday();
 
 const isRate = (value) => Number.isFinite(value) && value >= 0;
 

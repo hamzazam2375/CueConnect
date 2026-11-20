@@ -1,4 +1,4 @@
-import { after, before, describe, test } from "node:test";
+import { after, before, describe, mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { dayKey, startTestServer } from "./helpers.js";
 
@@ -220,6 +220,22 @@ describe("waitlist", () => {
             await book(owner.client, slot);
             const join = await client.post("/client/waitlist", slot);
             assert.equal(join.status, i < 5 ? 201 : 400, `entry ${i + 1}`);
+        }
+    });
+});
+describe("club time zone", () => {
+    test("slots are checked on Pakistan time: at 4:00 PM a 3:00 PM slot has started", async () => {
+        const table = await newTable();
+        // freeze the clock at 4:00 PM in Karachi (11:00 UTC); the old UTC check would have allowed 3:00 PM
+        mock.timers.enable({ apis: ["Date"], now: new Date("2030-01-10T11:00:00.000Z") });
+        try {
+            const { client } = await t.createClient(); // signs in under the frozen clock
+            const started = await book(client, { tableId: table.id, date: "2030-01-10", startTime: 15 * 60 });
+            assert.equal(started.status, 400);
+            assert.match(started.body.message, /already started/);
+            assert.equal((await book(client, { tableId: table.id, date: "2030-01-10", startTime: 17 * 60 })).status, 201);
+        } finally {
+            mock.timers.reset();
         }
     });
 });

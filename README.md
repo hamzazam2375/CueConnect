@@ -169,7 +169,7 @@ The notification bell shows real-time notifications (Socket.IO) on every client 
 
 **Bookings**
 
-- Bookings can be made from today up to **30 days** ahead, for **1, 2, or 3 hours**, starting **on the hour** within the branch's opening hours (closing may run past midnight). A slot that has already started can't be booked.
+- Bookings can be made from today up to **30 days** ahead, for **1, 2, or 3 hours**, starting **on the hour** within the branch's opening hours (closing may run past midnight). A slot that has already started can't be booked. All times and "today" follow the club's time zone (`Asia/Karachi`, or `CLUB_TIME_ZONE`), not the server's clock.
 - A table under maintenance can't be booked, and a slot can't overlap another **pending** or **approved** booking on the same table.
 - The total is the table's **hourly rate × hours**, minus any loyalty points used. The client pays a **50% advance** to one of the branch's payment accounts and sends the transaction ID and a screenshot (JPG, PNG, or WEBP, up to 5 MB). Each transaction ID can be used for only one payment.
 - New bookings are **pending** until the club approves or rejects them; the client is notified either way.

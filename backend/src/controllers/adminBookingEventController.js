@@ -12,6 +12,7 @@ import { notifyUser } from "../services/notifications.js";
 import { POINT_VALUE, restorePoints } from "../services/loyalty.js";
 import { sendPaymentProof } from "../utils/payments.js";
 import { recordReceivedIncome } from "../utils/recordIncome.js";
+import { slotHasStarted as slotStartsBeforeNow } from "../utils/clubTime.js";
 
 const BOOKING_STATUSES = ["pending", "approved", "completed", "rejected", "cancelled"];
 const ACTIVE_BOOKING_STATUSES = ["pending", "approved"];
@@ -49,7 +50,8 @@ const toUtcDate = (dateKey) => {
     return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dateKey ? null : date;
 };
 
-const slotHasStarted = (date, startTime) => new Date(date.getTime() + startTime * 60 * 1000) <= new Date();
+// compared on the club's clock (see utils/clubTime.js)
+const slotHasStarted = (date, startTime) => slotStartsBeforeNow(date, startTime);
 
 const formatClock = (minutes) => {
     const hour = Math.floor((minutes % 1440) / 60);
