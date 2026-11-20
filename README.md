@@ -45,6 +45,8 @@ CueConnect provides a centralized platform for managing the daily operations of 
 - Join a waitlist when a table is unavailable
 - Receive real-time notifications when a waitlisted table becomes available
 
+> See [Client Panel — Current State](#client-panel--current-state) for the full, up-to-date breakdown.
+
 ---
 
 # Admin Panel — Current State
@@ -135,6 +137,80 @@ All endpoints are prefixed with `/api/admin` and require an admin session. A mal
 | Settings      | `GET /settings` · `PATCH /settings/branch` · `POST /settings/accounts` · `PATCH /settings/accounts/:accountId` · `DELETE /settings/accounts/:accountId` · `PATCH /settings/profile` · `PATCH /settings/password` |
 
 **Public endpoints (no login)** used by the homepage: `GET /api/branches` returns every branch with its address, phone, opening hours, and tables (type, status, and prices); payment accounts are never included. `GET /api/events` returns upcoming, non-archived events.
+
+# Client Panel — Current State
+
+The client panel lives under `/client/*` in the frontend and `/api/client/*` in the backend. Every client route requires a signed-in client (JWT in an HTTP-only cookie). All client pages share one layout (`ClientLayout`): a header with the menu, notification bell, logo, and profile avatar, plus a slide-out menu with every page and **Sign out**.
+
+## Accounts & Access
+
+- **Sign up** (`/register`): first name, last name, email, and password. A unique Customer ID is generated, and a 6-digit code is emailed to confirm the address.
+- **Email verification**: the code is valid for 10 minutes and allows 5 wrong tries; a new code can be requested once a minute. Entering it verifies the email and signs the client in. An unverified client who signs in is sent a fresh code.
+- **Sign in** (`/login`): email (case-insensitive) and password. Accounts deactivated by the club can't sign in.
+- **Forgot password** (`/forgot-password`): a 6-digit code is emailed (valid 10 minutes, 5 tries, one new code per minute). A reset signs out every existing session and also counts as email verification. The reply is the same whether or not the email has an account.
+- **Password rules for clients**: at least 8 characters, with a capital letter and a special character. The same rules apply when changing the password on the Profile page.
+
+## Pages
+
+| Page               | Route                                                 | What the client can do                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard          | `/client/dashboard`                                   | Booking, loyalty, upcoming-event, and free-table counts, a "Book a table" shortcut, quick actions, the points balance, and upcoming club events.                                                                                                                                                                                                                         |
+| Book a table       | `/client/book` → `/table` → `/schedule` → `/review`   | Four steps: pick a branch, pick a table (type, rates, status), pick a date, start time, and duration on the live schedule (or join the waitlist for a taken slot), then review, optionally spend loyalty points, pay the advance to one of the club's accounts, and send the transaction ID and a screenshot. Choices are kept in session storage, so going back keeps them. |
+| My bookings        | `/client/bookings`                                    | **Bookings tab:** every booking with its status, details, and payment proof; cancel, reschedule (`/client/bookings/:reference/reschedule`), or change table (`/client/bookings/:reference/change-table`). **Waitlist tab:** waitlisted slots, with a button to leave.                                                                                                     |
+| Loyalty points     | `/client/loyalty`                                     | Balance and its value in PKR, progress toward the bill discount, ways to earn and use points, and the points history (earned, used, returned).                                                                                                                                                                                                                          |
+| Events             | `/client/events`                                      | Upcoming tournaments and club events with fee, prize, and spots left, plus the client's registrations; cancel a registration before the event starts.                                                                                                                                                                                                                   |
+| Event registration | `/client/events/:eventId`                             | Event details and rules, then register: free events confirm at once, paid events need the transaction ID and a payment screenshot.                                                                                                                                                                                                                                      |
+| My history         | `/client/history`                                     | One timeline of bookings, games, payments (recorded by the club or sent online), event registrations, and loyalty points.                                                                                                                                                                                                                                               |
+| Profile            | `/client/profile`                                     | Edit first name, last name, and phone (the email can't be changed), and change the password.                                                                                                                                                                                                                                                                            |
+
+The notification bell shows real-time notifications (Socket.IO) on every client page, with mark-as-read and mark-all-read.
+
+## Business Rules
+
+**Bookings**
+
+- Bookings can be made from today up to **30 days** ahead, for **1, 2, or 3 hours**, starting **on the hour** within the branch's opening hours (closing may run past midnight). A slot that has already started can't be booked.
+- A table under maintenance can't be booked, and a slot can't overlap another **pending** or **approved** booking on the same table.
+- The total is the table's **hourly rate × hours**, minus any loyalty points used. The client pays a **50% advance** to one of the branch's payment accounts and sends the transaction ID and a screenshot (JPG, PNG, or WEBP, up to 5 MB). Each transaction ID can be used for only one payment.
+- New bookings are **pending** until the club approves or rejects them; the client is notified either way.
+- A client can **cancel** a pending or approved booking. Only **pending** bookings can be **rescheduled** or moved to another table; rescheduling reprices the total from the hourly rate.
+- Loyalty points spent on a booking are returned if it is cancelled or rejected.
+
+**Waitlist**
+
+- When a slot is taken, the client can join its waitlist (not for a free slot, or one they have already booked), with up to **5** active waitlist entries at a time.
+- The club notifies a waiting client when the slot frees up; entries whose slot has started expire.
+
+**Loyalty points**
+
+- Earned: **10 points per completed game** played, plus **1 point per PKR 10** paid on bills. The client is notified each time.
+- 1 point = PKR 1. On an online booking, points can cover up to **20%** of the total.
+- At the club, once the balance is **more than 200 points**, staff can apply points to a bill (once per bill, using only the points the bill needs).
+
+**Events**
+
+- Registration is open while the event is upcoming, in the future, and not full. Events stay listed until 6 hours after they start; archived events are hidden.
+- Free events are confirmed immediately. Paid events need the fee paid to a branch account with a transaction ID and screenshot, and stay **registered** until the club confirms or rejects them.
+- A client can cancel an active registration until the event starts, and can register again later if there is still room.
+
+**Payment proofs**
+
+- Screenshots are stored as private images on Cloudinary when the `CLOUDINARY_*` variables are set (otherwise on the server's disk, for local development) and are shown only to the client who sent them and the branch's admins.
+
+## Client API Reference
+
+Endpoints in the first two rows are under `/api/auth`; the rest are under `/api/client` and require a client session.
+
+| Area              | Endpoints                                                                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auth              | `POST /client/register` · `POST /client/verify-email` · `POST /client/resend-code` · `POST /client/login` · `POST /password/forgot` · `POST /password/reset` · `GET /me` · `POST /logout`                                       |
+| Profile           | `PATCH /client/profile` · `PATCH /client/password`                                                                                                                                                                             |
+| Branches & tables | `GET /branches` · `GET /branches/:branchId/tables` · `GET /branches/:branchId/availability`                                                                                                                                    |
+| Bookings          | `GET /bookings` · `POST /bookings` (multipart, with `paymentProof`) · `GET /bookings/:reference` · `GET /bookings/:reference/payment-proof` · `PATCH /bookings/:reference/cancel` · `PATCH /bookings/:reference/reschedule` · `PATCH /bookings/:reference/table` |
+| Waitlist          | `GET /waitlist` · `POST /waitlist` · `PATCH /waitlist/:id/cancel`                                                                                                                                                              |
+| Loyalty & history | `GET /loyalty` · `GET /history`                                                                                                                                                                                                |
+| Events            | `GET /events` · `GET /events/:id` · `POST /events/:id/register` (multipart) · `GET /event-registrations` · `PATCH /event-registrations/:reference/cancel` · `GET /event-registrations/:reference/payment-proof`                  |
+| Notifications     | `GET /socket-token` · `GET /notifications` · `PATCH /notifications/:id/read` · `PATCH /notifications/read-all`                                                                                                                 |
 
 ## Getting Started
 
