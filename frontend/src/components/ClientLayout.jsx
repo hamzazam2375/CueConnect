@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import Logo from "./Logo";
@@ -64,18 +64,39 @@ function SideNavItem({ item, active, onNavigate }) {
     return <Link to={item.href} onClick={onNavigate} className={classes} aria-current={active ? "page" : undefined}>{content}</Link>;
 }
 
+// on large screens the menu stays open beside the page; on smaller ones it slides in
+const DESKTOP_QUERY = "(min-width: 1024px)";
+// `onDesktop` runs when the window grows to desktop size
+const useIsDesktop = (onDesktop) => {
+    const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia(DESKTOP_QUERY).matches);
+    useEffect(() => {
+        const query = window.matchMedia(DESKTOP_QUERY);
+        const update = () => {
+            setIsDesktop(query.matches);
+            if (query.matches) onDesktop();
+        };
+        query.addEventListener("change", update);
+        return () => query.removeEventListener("change", update);
+    }, [onDesktop]);
+    return isDesktop;
+};
+
 export default function ClientLayout() {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { user, isLoading } = useSelector((state) => state.auth);
     const [isOpen, setIsOpen] = useState(false);
+    const closeDrawer = useCallback(() => setIsOpen(false), []);
+    // the drawer state only matters on small screens, so it starts closed if the window shrinks again
+    const isDesktop = useIsDesktop(closeDrawer);
+    const isDrawer = !isDesktop;
     const initials = `${user.firstName?.[0] || "C"}${user.lastName?.[0] || ""}`.toUpperCase();
     const closeSidebar = () => setIsOpen(false);
 
     // while the drawer is open: Escape closes it and the page behind does not scroll
     useEffect(() => {
-        if (!isOpen) return undefined;
+        if (!isOpen || !isDrawer) return undefined;
         const closeOnEscape = (event) => event.key === "Escape" && setIsOpen(false);
         const previousOverflow = document.body.style.overflow;
         document.addEventListener("keydown", closeOnEscape);
@@ -84,7 +105,7 @@ export default function ClientLayout() {
             document.removeEventListener("keydown", closeOnEscape);
             document.body.style.overflow = previousOverflow;
         };
-    }, [isOpen]);
+    }, [isOpen, isDrawer]);
 
     const handleLogout = async () => {
         try {
@@ -98,7 +119,7 @@ export default function ClientLayout() {
     return (
         <SidebarContext.Provider value={{ isOpen, openSidebar: () => setIsOpen(true) }}>
             <NotificationsProvider>
-                <div className="dashboard-shell min-h-screen bg-[#050505] text-white">
+                <div className="dashboard-shell min-h-screen bg-[#050505] text-white lg:pl-[272px]">
                     <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
                         <div className="absolute left-1/3 top-[-16rem] h-[36rem] w-[36rem] rounded-full bg-red-700/[0.09] blur-[150px]" />
                         <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-red-950/20 blur-[150px]" />
@@ -110,7 +131,7 @@ export default function ClientLayout() {
                             <div className="flex items-center gap-3">
                                 <SidebarToggle />
                                 <NotificationBell />
-                                <Link to="/" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link>
+                                <Link to="/" className="lg:hidden" aria-label="Goodshot home"><Logo blend={false} className="h-7 contrast-125 brightness-110 sm:h-8" /></Link>
                             </div>
                             <Link to="/client/profile" className="group flex shrink-0 items-center gap-3" aria-label="Your profile">
                                 <div className="hidden text-right sm:block">
@@ -129,30 +150,30 @@ export default function ClientLayout() {
             </NotificationsProvider>
 
             <div
-                className={`fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                className={`fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
                 onClick={closeSidebar}
                 aria-hidden="true"
             />
 
             <aside
                 id="client-sidebar"
-                className={`fixed inset-y-0 left-0 z-[80] flex w-[272px] max-w-[85vw] flex-col border-r border-white/[0.07] bg-[#070707] px-5 py-6 text-white shadow-2xl shadow-black transition-transform duration-300 ease-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
-                role="dialog"
-                aria-modal="true"
+                className={`fixed inset-y-0 left-0 z-[80] flex w-[272px] max-w-[85vw] flex-col overflow-y-auto border-r border-white/[0.07] bg-[#070707] px-5 py-6 text-white shadow-2xl shadow-black transition-transform duration-300 ease-out [scrollbar-color:rgba(255,255,255,0.12)_transparent] [scrollbar-width:thin] lg:translate-x-0 lg:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+                role={isDrawer ? "dialog" : undefined}
+                aria-modal={isDrawer ? "true" : undefined}
                 aria-label="Client menu"
-                inert={!isOpen}
+                inert={isDrawer && !isOpen}
             >
                 <div className="flex items-center justify-between gap-3">
                     <Link to="/" onClick={closeSidebar} className="px-2" aria-label="Goodshot home">
                         <Logo blend={false} className="h-8 contrast-125 brightness-110" />
                     </Link>
-                    <button type="button" onClick={closeSidebar} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.08] text-neutral-500 transition-colors hover:bg-white/[0.05] hover:text-white" aria-label="Close menu">
+                    <button type="button" onClick={closeSidebar} className="grid h-9 w-9 place-items-center rounded-xl border lg:hidden border-white/[0.08] text-neutral-500 transition-colors hover:bg-white/[0.05] hover:text-white" aria-label="Close menu">
                         <Icon name="close" className="h-4 w-4" />
                     </button>
                 </div>
 
                 <div className="mt-10 px-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600">Your space</div>
-                <nav className="mt-3 space-y-1.5 overflow-y-auto" aria-label="Client navigation">
+                <nav className="mt-3 space-y-1.5" aria-label="Client navigation">
                     {navigation.map((item) => <SideNavItem key={item.label} item={item} active={isItemActive(item, pathname)} onNavigate={closeSidebar} />)}
                 </nav>
 

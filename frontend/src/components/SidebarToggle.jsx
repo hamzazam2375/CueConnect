@@ -7,7 +7,7 @@ export default function SidebarToggle() {
         <button
             type="button"
             onClick={openSidebar}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-neutral-300 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl lg:hidden border border-white/[0.08] bg-white/[0.03] text-neutral-300 transition-all hover:border-white/15 hover:bg-white/[0.07] hover:text-white"
             aria-label="Open menu"
             aria-expanded={isOpen}
             aria-controls="client-sidebar"
