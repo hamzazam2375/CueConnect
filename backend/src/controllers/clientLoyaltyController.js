@@ -1,5 +1,5 @@
 import Loyalty from "../models/loyalty.js";
-import { MAX_REDEEM_RATE, POINTS_PER_GAME, POINT_VALUE } from "../services/loyalty.js";
+import { MAX_REDEEM_RATE, PKR_PER_POINT_EARNED, POINTS_PER_GAME, POINT_VALUE, REWARD_THRESHOLD } from "../services/loyalty.js";
 
 const HISTORY_LIMIT = 50;
 
@@ -21,7 +21,13 @@ export const getClientLoyalty = async (req, res) => {
         res.status(200).json({
             points: loyalty?.points || 0,
             history,
-            rules: { pointsPerGame: POINTS_PER_GAME, pointValue: POINT_VALUE, maxRedeemRate: MAX_REDEEM_RATE }
+            rules: {
+                pointsPerGame: POINTS_PER_GAME,
+                pkrPerPoint: PKR_PER_POINT_EARNED,
+                pointValue: POINT_VALUE,
+                maxRedeemRate: MAX_REDEEM_RATE,
+                billThreshold: REWARD_THRESHOLD
+            }
         });
     } catch (error) {
         console.error("Get client loyalty error:", error.message);

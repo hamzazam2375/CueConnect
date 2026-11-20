@@ -7,13 +7,13 @@ import NotificationBell from "../components/NotificationBell";
 import { logout } from "../store/authSlice";
 import tableImage from "../../assets/table.webp";
 import { fetchBookingBranches, fetchClientBookings } from "../utils/clientBookings";
-import { POINTS_PER_GAME, fetchClientLoyalty } from "../utils/loyalty";
+import { PKR_PER_POINT_EARNED, POINTS_PER_GAME, fetchClientLoyalty } from "../utils/loyalty";
 import { fetchClientEvents } from "../utils/clientEvents";
 
 const quickActions = [
     { title: "Book a table", description: "Reserve your preferred slot", icon: "calendar", href: "/client/book", accent: "red" },
     { title: "Explore events", description: "Tournaments and club nights", icon: "trophy", href: "/client/events", accent: "amber" },
-    { title: "Loyalty points", description: "Earn on every game you play", icon: "star", href: "/client/loyalty", accent: "violet" },
+    { title: "Loyalty points", description: "Earn on every game and payment", icon: "star", href: "/client/loyalty", accent: "violet" },
     { title: "My bookings", description: "Review your booking requests", icon: "history", href: "/client/bookings", accent: "blue" }
 ];
 
@@ -148,7 +148,7 @@ export default function ClientDashboard() {
 
                     <section className="mt-8 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" aria-label="Account overview">
                         <StatCard icon="calendar" label="Bookings" value={bookings.length} detail={pendingBookings ? `${pendingBookings} pending request${pendingBookings === 1 ? "" : "s"}` : "No pending requests"} delay="80ms" />
-                        <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} off bookings` : "Play to earn points"} delay="140ms" />
+                        <StatCard icon="star" label="Loyalty points" value={points.toLocaleString()} detail={points ? `Worth PKR ${points.toLocaleString()} in discounts` : "Play to earn points"} delay="140ms" />
                         <StatCard icon="trophy" label="Upcoming events" value={events?.length ?? 0} detail="Tournaments and club nights" delay="200ms" />
                         <StatCard icon="ticket" label="Tables ready" value={availableTables} detail={`Across ${branches.length} ${branches.length === 1 ? "branch" : "branches"}`} delay="260ms" />
                     </section>
@@ -186,7 +186,7 @@ export default function ClientDashboard() {
                         <div className="space-y-6">
                             <article className="dashboard-rise dashboard-card overflow-hidden rounded-3xl border border-white/[0.08] bg-neutral-950/85 p-6" style={{ animationDelay: "360ms" }}>
                                 <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500">Rewards</p><h2 className="mt-1 text-xl font-bold">Loyalty points</h2></div><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500/10 text-amber-400"><Icon name="star" /></span></div>
-                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">{POINTS_PER_GAME} points for every game you play</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
+                                <Link to="/client/loyalty" className="group mt-7 flex items-end justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04]"><div><p className="text-3xl font-black">{points.toLocaleString()} <span className="text-sm font-medium text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-1 text-xs text-neutral-500">{POINTS_PER_GAME} points per game, plus 1 per PKR {PKR_PER_POINT_EARNED} paid</p></div><span className="text-xs font-bold text-amber-400 transition-transform group-hover:translate-x-0.5">View history</span></Link>
                                 <Link to="/client/history" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-xs font-bold text-neutral-300 transition-colors hover:bg-white/[0.07] hover:text-white">View my history <Icon name="arrow" className="h-3.5 w-3.5" /></Link>
                             </article>
 

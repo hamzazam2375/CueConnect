@@ -6,7 +6,10 @@ import SidebarToggle from "../components/SidebarToggle";
 import NotificationBell from "../components/NotificationBell";
 import { ErrorPanel, LoadingPanel } from "../components/LoadState";
 import { getApiError } from "../utils/clientBookings";
-import { fetchClientLoyalty } from "../utils/loyalty";
+import { fetchClientLoyalty, MAX_REDEEM_RATE, PKR_PER_POINT_EARNED, POINT_VALUE, POINTS_PER_GAME, REWARD_THRESHOLD } from "../utils/loyalty";
+
+// used if the server leaves a rule out
+const DEFAULT_RULES = { pointsPerGame: POINTS_PER_GAME, pkrPerPoint: PKR_PER_POINT_EARNED, pointValue: POINT_VALUE, maxRedeemRate: MAX_REDEEM_RATE, billThreshold: REWARD_THRESHOLD };
 
 const historyStyles = {
     earned: { label: "Earned", sign: "+", className: "text-emerald-400", icon: "plus" },
@@ -23,6 +26,9 @@ function Icon({ name, className = "h-5 w-5" }) {
         undo: <><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>,
         cue: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" /></>,
         arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+        cash: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></>,
+        receipt: <><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+        calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>,
         empty: <><circle cx="12" cy="12" r="9" /><path d="M8 15h8M9 9h.01M15 9h.01" /></>
     };
     return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
@@ -31,7 +37,30 @@ function Icon({ name, className = "h-5 w-5" }) {
 const formatDate = (value) => new Date(value).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 
 function Step({ icon, title, text, index }) {
-    return <article className="dashboard-rise rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-5" style={{ animationDelay: `${140 + index * 60}ms` }}><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name={icon} /></span><h2 className="mt-4 text-sm font-bold">{title}</h2><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{text}</p></article>;
+    return <article className="dashboard-rise rounded-2xl border border-white/[0.07] bg-neutral-950/80 p-5" style={{ animationDelay: `${140 + index * 60}ms` }}><span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400"><Icon name={icon} /></span><h3 className="mt-4 text-sm font-bold">{title}</h3><p className="mt-1.5 text-xs leading-relaxed text-neutral-500">{text}</p></article>;
+}
+
+// how close the balance is to unlocking the discount the club can apply on a bill
+function BillProgress({ points, threshold }) {
+    const unlocked = points > threshold;
+    const needed = threshold + 1 - points;
+    const percent = unlocked ? 100 : Math.min(100, Math.round((points / (threshold + 1)) * 100));
+    return (
+        <div className="mt-6 border-t border-white/[0.07] pt-5">
+            <div className="flex items-center justify-between gap-3 text-xs">
+                <p className="font-semibold text-neutral-300">Bill discount at the club</p>
+                <p className={unlocked ? "font-bold text-emerald-400" : "text-neutral-500"}>{unlocked ? "Unlocked" : `${needed.toLocaleString()} more ${needed === 1 ? "point" : "points"} to go`}</p>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/[0.06]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label="Progress to bill discount">
+                <div className={`h-full rounded-full transition-all ${unlocked ? "bg-emerald-500" : "bg-red-600"}`} style={{ width: `${percent}%` }} />
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">
+                {unlocked
+                    ? "Ask the staff to apply your points when you pay your bill."
+                    : `Once you have more than ${threshold.toLocaleString()} points, the staff can apply them as a discount on your bill.`}
+            </p>
+        </div>
+    );
 }
 
 export default function ClientLoyalty() {
@@ -60,24 +89,36 @@ export default function ClientLoyalty() {
     } else if (!loyalty) {
         content = <LoadingPanel label="Loading loyalty points" />;
     } else {
-        const { points, history, rules } = loyalty;
+        const { points, history } = loyalty;
+        const rules = { ...DEFAULT_RULES, ...loyalty.rules };
         const maxPercent = Math.round(rules.maxRedeemRate * 100);
         content = (
             <>
                 <section className="dashboard-rise mt-8 overflow-hidden rounded-3xl border border-red-500/15 bg-gradient-to-br from-red-950/40 via-neutral-950 to-neutral-950 p-6 sm:p-8" style={{ animationDelay: "80ms" }}>
                     <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-                        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">Your balance</p><p className="mt-3 text-5xl font-black tracking-tight sm:text-6xl">{points.toLocaleString()} <span className="text-lg font-semibold text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-2 text-sm text-neutral-400">Worth PKR {(points * rules.pointValue).toLocaleString()} off your bookings.</p></div>
+                        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">Your balance</p><p className="mt-3 text-5xl font-black tracking-tight sm:text-6xl">{points.toLocaleString()} <span className="text-lg font-semibold text-neutral-500">{points === 1 ? "point" : "points"}</span></p><p className="mt-2 text-sm text-neutral-400">Worth PKR {(points * rules.pointValue).toLocaleString()} in discounts.</p></div>
                         <Link to="/client/book" className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:bg-red-500">Use on a booking <Icon name="arrow" className="h-4 w-4" /></Link>
+                    </div>
+                    <BillProgress points={points} threshold={rules.billThreshold} />
+                </section>
+
+                <section className="mt-8" aria-labelledby="earn-heading">
+                    <h2 id="earn-heading" className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Ways to earn</h2>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <Step index={0} icon="cue" title={`${rules.pointsPerGame} points per game`} text="Every frame or century game you play at any Goodshot branch, added when the club ends the game." />
+                        <Step index={1} icon="cash" title={`1 point per PKR ${rules.pkrPerPoint} paid`} text={`When you pay a bill at the club, you earn a point for every PKR ${rules.pkrPerPoint} paid. You get a notification each time.`} />
                     </div>
                 </section>
 
-                <section className="mt-6 grid gap-4 sm:grid-cols-3" aria-label="How loyalty points work">
-                    <Step index={0} icon="cue" title="Play games" text={`Earn ${rules.pointsPerGame} points for every game you play at any Goodshot branch.`} />
-                    <Step index={1} icon="star" title="Collect points" text="Points are added when the club ends your game, and you get a notification." />
-                    <Step index={2} icon="ticket" title="Save on bookings" text={`Each point is PKR ${rules.pointValue} off. Use points for up to ${maxPercent}% of a booking total.`} />
+                <section className="mt-6" aria-labelledby="use-heading">
+                    <h2 id="use-heading" className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Ways to use</h2>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <Step index={2} icon="calendar" title="On online bookings" text={`Each point is PKR ${rules.pointValue} off, for up to ${maxPercent}% of a booking total. If the booking is cancelled or rejected, the points come back.`} />
+                        <Step index={3} icon="receipt" title="On your bill at the club" text={`Once you have more than ${rules.billThreshold.toLocaleString()} points, the staff can take them off what you owe, once per bill. Only the points needed are used.`} />
+                    </div>
                 </section>
 
-                <section className="dashboard-rise mt-8 rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "320ms" }}>
+                <section className="dashboard-rise mt-8 rounded-3xl border border-white/[0.08] bg-neutral-950/80 p-5 sm:p-6" style={{ animationDelay: "380ms" }}>
                     <h2 className="text-lg font-bold">Points history</h2>
                     {history.length ? (
                         <ul className="mt-4 divide-y divide-white/[0.06]">
