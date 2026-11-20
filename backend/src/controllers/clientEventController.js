@@ -1,10 +1,10 @@
 import crypto from "crypto";
-import path from "path";
 import mongoose from "mongoose";
 import Branch from "../models/branch.js";
 import Event from "../models/event.js";
 import TournamentReg from "../models/tournamentReg.js";
-import { discardUpload, PAYMENT_PROOF_DIR } from "../middleware/upload.js";
+import { discardUpload } from "../middleware/upload.js";
+import { deleteProof } from "../services/proofStorage.js";
 import { parsePayment, sendPaymentProof, serializePaymentAccount, serializePaymentSnapshot, snapshotPaymentAccount } from "../utils/payments.js";
 import { formatBranchName } from "../utils/branchName.js";
 
@@ -224,7 +224,7 @@ export const registerForEvent = async (req, res) => {
             previous.set({ ...fields, reference: createReference() });
             registration = await previous.save();
             // the replaced screenshot is no longer linked to anything
-            if (oldProof) discardUpload({ path: path.join(PAYMENT_PROOF_DIR, path.basename(oldProof)) });
+            deleteProof(oldProof);
         } else {
             for (let attempt = 0; attempt < 5; attempt += 1) {
                 try {

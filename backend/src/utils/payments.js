@@ -1,7 +1,6 @@
-import path from "path";
 import Booking from "../models/booking.js";
 import TournamentReg from "../models/tournamentReg.js";
-import { PAYMENT_PROOF_DIR } from "../middleware/upload.js";
+import { sendProof } from "../services/proofStorage.js";
 
 // shared by every flow where a client pays a branch account and uploads proof
 export const TRANSACTION_ID = /^[A-Za-z0-9-]{4,40}$/;
@@ -52,8 +51,4 @@ export const parsePayment = async (branch, body) => {
     return { account, transactionId };
 };
 
-export const sendPaymentProof = (res, fileName) => {
-    res.sendFile(path.basename(fileName), { root: PAYMENT_PROOF_DIR }, (error) => {
-        if (error && !res.headersSent) res.status(404).json({ message: "Payment proof not found" });
-    });
-};
+export const sendPaymentProof = (res, storageKey) => sendProof(res, storageKey);

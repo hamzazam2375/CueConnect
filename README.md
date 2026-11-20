@@ -143,7 +143,7 @@ All endpoints are prefixed with `/api/admin` and require an admin session. A mal
 ```bash
 # backend
 cd backend
-cp .env.example .env    # fill in MONGODB_URI, JWT_SECRET, ADMIN_SECRET_KEY, RESEND_* and CLIENT_URL
+cp .env.example .env    # fill in MONGODB_URI, JWT_SECRET, ADMIN_SECRET_KEY, RESEND_*, CLIENT_URL and (in production) CLOUDINARY_*
 npm install
 npm run dev             # http://localhost:5000
 
